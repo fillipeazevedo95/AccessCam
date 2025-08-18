@@ -77,7 +77,7 @@ export default function CameraList() {
   }
 
   return (
-  <div style={{ minHeight: '100vh', background: '#fff', padding: 0, margin: 0 }}>
+  <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: 0, margin: 0 }}>
       {/* Header */}
   <header style={{ width: '100%', background: '#04506B', color: '#fff', padding: 0, boxShadow: '0 2px 8px #0002', position: 'sticky', top: 0, zIndex: 2000 }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '12px 32px', gap: 16 }}>
@@ -169,18 +169,25 @@ export default function CameraList() {
                       <FaTrash size={15} />
                     </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: 8 }}>
                     <span style={{
-                      display: 'inline-flex',
+                      display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       width: 38,
                       height: 38,
                       borderRadius: '50%',
-                      background: cam.status === 'online' ? '#739577' : cam.status === 'offline' ? '#CC7277' : '#bdbdbd',
+                      background: cam.status === 'online' ? '#e0f7e9' : cam.status === 'offline' ? '#fde2e2' : '#fdf6e3',
+                      border: '2px solid #e0e7ef',
+                      boxShadow: '0 1px 4px #0001',
+                      gap: 6,
+                      marginRight: 10,
                     }}>
-                      <span style={{ fontWeight: 700, color: '#111', fontSize: 22, textTransform: 'capitalize' }}>{cam.status}</span>
+                      {cam.status === 'online' && <FaWifi color="#22c55e" size={22} title="Online" />}
+                      {cam.status === 'offline' && <FaUnlink color="#ef4444" size={22} title="Offline" />}
+                      {cam.status === 'sem sinal' && <MdWifiOff color="#eab308" size={24} title="Sem sinal" />}
                     </span>
+                    <span style={{ fontWeight: 700, color: '#111', fontSize: 17, textTransform: 'capitalize' }}>{cam.status}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 2 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef', color: '#334155', fontSize: 15, fontWeight: 500 }}>

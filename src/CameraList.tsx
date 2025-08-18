@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react';
 import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaUnlink, FaEdit, FaTrash } from 'react-icons/fa';
 import { MdWifiOff } from 'react-icons/md';
 import { supabase } from './supabaseClient.ts';
@@ -26,12 +26,12 @@ const statusColors = {
 
 export default function CameraList() {
   const [cameras, setCameras] = useState<Camera[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [statusFiltro, setStatusFiltro] = useState<'all' | 'online' | 'offline' | 'sem sinal'>('all');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState<string>('');
   const [form, setForm] = useState<Partial<Camera>>({ tipo_conexao: 'cloud', status: 'offline' });
   const [editId, setEditId] = useState<number | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState<boolean>(false);
 
   async function fetchCameras() {
     setLoading(true);
@@ -46,11 +46,11 @@ export default function CameraList() {
     fetchCameras();
   }, []);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-  setForm({ ...form, [e.target.name]: e.target.value });
+  function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (editId) {
       await supabase.from('cameras').update(form).eq('id', editId);

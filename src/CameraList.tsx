@@ -10,6 +10,8 @@ export type Camera = {
   cloud: string;
   camera_id: string;
   ddns: string;
+  porta_servico?: string;
+  porta_web?: string;
   usuario: string;
   senha: string;
   tipo_conexao: 'cloud' | 'id' | 'ddns';
@@ -45,7 +47,7 @@ export default function CameraList() {
   }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  setForm({ ...form, [e.target.name]: e.target.value });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -132,7 +134,7 @@ export default function CameraList() {
         {loading ? (
           <p style={{ textAlign: 'center', color: '#64748b', fontSize: 18 }}>Carregando...</p>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'center', width: '100%' }}>
             {cameras
               .filter(cam => {
                 const termo = search.toLowerCase();
@@ -176,27 +178,9 @@ export default function CameraList() {
                       height: 38,
                       borderRadius: '50%',
                       background: cam.status === 'online' ? '#739577' : cam.status === 'offline' ? '#CC7277' : '#bdbdbd',
-                      boxShadow: '0 2px 8px #0006',
-                      marginRight: 6,
-                      border: '2.5px solid #fff',
                     }}>
-                      {cam.status === 'online' && (
-                        <span style={{ filter: 'drop-shadow(0 1px 2px #0008)' }}>
-                          <FaWifi color="#fff" size={22} title="Online" />
-                        </span>
-                      )}
-                      {cam.status === 'offline' && (
-                        <span style={{ filter: 'drop-shadow(0 1px 2px #0008)' }}>
-                          <FaUnlink color="#fff" size={22} title="Offline" />
-                        </span>
-                      )}
-                      {cam.status === 'sem sinal' && (
-                        <span style={{ filter: 'drop-shadow(0 1px 2px #0008)' }}>
-                          <MdWifiOff color="#fff" size={24} title="Sem sinal" />
-                        </span>
-                      )}
+                      <span style={{ fontWeight: 700, color: '#111', fontSize: 22, textTransform: 'capitalize' }}>{cam.status}</span>
                     </span>
-                    <span style={{ fontWeight: 700, color: '#111', fontSize: 22, textTransform: 'capitalize' }}>{cam.status}</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 2 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef', color: '#334155', fontSize: 15, fontWeight: 500 }}>
@@ -224,41 +208,9 @@ export default function CameraList() {
                     {cam.senha && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef' }}><FaKey color="#eab308" size={22} /> <b>Senha:</b> {cam.senha}</span>
                     )}
-                    {/* Tipo de conexão removido conforme solicitado */}
                   </div>
                 </div>
               ))}
-          </div>
-        )}
-        {showModal && (
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#0007', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 4px 32px #0002', padding: 32, minWidth: 340, maxWidth: 400, width: '100%', position: 'relative' }}>
-              <button onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline' }); }} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 0, fontSize: 22, color: '#64748b', cursor: 'pointer' }}>&times;</button>
-              <h2 style={{ color: '#2563eb', fontWeight: 600, fontSize: 22, marginBottom: 18 }}>{editId ? 'Editar Câmera' : 'Cadastrar Nova Câmera'}</h2>
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <input name="loja_numero" placeholder="Número Loja" value={form.loja_numero || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-                <input name="loja_nome" placeholder="Nome Loja" value={form.loja_nome || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-                <input name="cloud" placeholder="Cloud" value={form.cloud || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-                <input name="camera_id" placeholder="ID" value={form.camera_id || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-                <input name="ddns" placeholder="DDNS" value={form.ddns || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-                <input name="usuario" placeholder="Usuário" value={form.usuario || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-                <input name="senha" placeholder="Senha" value={form.senha || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-                <select name="tipo_conexao" value={form.tipo_conexao || 'cloud'} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}>
-                  <option value="cloud">Cloud</option>
-                  <option value="id">ID</option>
-                  <option value="ddns">DDNS</option>
-                </select>
-                <select name="status" value={form.status || 'offline'} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}>
-                  <option value="online">Online</option>
-                  <option value="offline">Offline</option>
-                  <option value="sem sinal">Sem sinal</option>
-                </select>
-                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                  <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 6, padding: '8px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}>{editId ? 'Salvar' : 'Cadastrar'}</button>
-                  <button type="button" onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline' }); }} style={{ background: '#e0e7ef', color: '#334155', border: 0, borderRadius: 6, padding: '8px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}>Cancelar</button>
-                </div>
-              </form>
-            </div>
           </div>
         )}
       </div>

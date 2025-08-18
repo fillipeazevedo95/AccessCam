@@ -8,6 +8,8 @@ CREATE TABLE cameras (
   ddns text,
   usuario text,
   senha text,
+  porta_servico text,
+  porta_web text,
   tipo_conexao text check (tipo_conexao in ('cloud', 'id', 'ddns')) not null,
   status text check (status in ('online', 'offline', 'sem sinal')) not null
 );

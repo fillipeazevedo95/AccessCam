@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import UserManager from './UserManager.tsx';
 import { useAuth } from './auth.tsx';
 import { useAllUsers } from './useAllUsers.ts';
-import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaCheckCircle, FaTimesCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { MdWifiOff } from 'react-icons/md';
 
 type Camera = {
@@ -45,6 +45,7 @@ export default function CameraList() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   const [showSenha, setShowSenha] = React.useState<{ [id: number]: boolean }>({});
+  const [showUsuario, setShowUsuario] = React.useState<{ [id: number]: boolean }>({});
   useEffect(() => {
     if (isMobile) setHeaderMin(true);
     else setHeaderMin(false);
@@ -264,8 +265,48 @@ export default function CameraList() {
           {cam.cloud && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaCloud color="#0ea5e9" size={18} /> Cloud: {cam.cloud}</span>}
           {cam.camera_id && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaIdBadge color="#6366f1" size={18} /> ID: {cam.camera_id}</span>}
           {cam.ddns && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#16a34a" size={18} /> DDNS: {cam.ddns}</span>}
-          {cam.usuario && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaUser color="#f59e42" size={18} /> Usuário: {cam.usuario}</span>}
-          {cam.senha && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaKey color="#eab308" size={18} /> Senha: {cam.senha}</span>}
+          {cam.usuario && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
+              <FaUser color="#f59e42" size={18} /> 
+              Usuário: {showUsuario[cam.id] ? cam.usuario : '••••••••'}
+              <button 
+                onClick={() => setShowUsuario(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+                style={{
+                  background: 'linear-gradient(135deg, #04506B, #0369a1)',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 4,
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  marginLeft: 4
+                }}
+              >
+                {showUsuario[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
+              </button>
+            </span>
+          )}
+          {cam.senha && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
+              <FaKey color="#eab308" size={18} /> 
+              Senha: {showSenha[cam.id] ? cam.senha : '••••••••'}
+              <button 
+                onClick={() => setShowSenha(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+                style={{
+                  background: 'linear-gradient(135deg, #04506B, #0369a1)',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 4,
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  marginLeft: 4
+                }}
+              >
+                {showSenha[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
+              </button>
+            </span>
+          )}
           {cam.porta_servico && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaWifi color="#2563eb" size={18} /> Porta Serviço: {cam.porta_servico}</span>}
           {cam.porta_web && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><MdWifiOff color="#2563eb" size={18} /> Porta Web: {cam.porta_web}</span>}
           {(cam.cidade || cam.estado) && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#2563eb" size={18} /> {cam.cidade} {cam.estado && <span style={{ fontWeight: 400 }}>|</span>} {cam.estado}</span>}
@@ -481,13 +522,13 @@ export default function CameraList() {
           <option value="sem sinal">No Sinal</option>
         </select>
         <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)} style={{ width: 90, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
-          <option value="all">Todos os Estados</option>
+          <option value="all">Estados</option>
           {estadosCadastrados.map(estado => (
             <option key={estado} value={estado}>{estado}</option>
           ))}
         </select>
         <select value={cidadeFiltro} onChange={e => setCidadeFiltro(e.target.value)} style={{ width: 120, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
-          <option value="all">Todas as Cidades</option>
+          <option value="all">Cidades</option>
           {cidadesCadastradas.map(cidade => (
             <option key={cidade} value={cidade}>{cidade}</option>
           ))}

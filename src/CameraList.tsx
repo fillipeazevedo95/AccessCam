@@ -6,7 +6,7 @@ import { useAllUsers } from './useAllUsers.ts';
 import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaCheckCircle, FaTimesCircle, FaExclamationCircle } from 'react-icons/fa';
 import { MdWifiOff } from 'react-icons/md';
 
-export type Camera = {
+type Camera = {
   id: number;
   loja_numero: string;
   loja_nome: string;
@@ -422,7 +422,7 @@ export default function CameraList() {
               });
               window.location.reload();
             }} style={{ 
-              background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)', 
+              background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
               color: '#fff', 
               border: 0, 
               borderRadius: 12, 
@@ -430,7 +430,7 @@ export default function CameraList() {
               fontWeight: 700, 
               cursor: 'pointer', 
               fontSize: isMobile ? 17 : 15, 
-              boxShadow: '0 4px 15px rgba(238, 90, 36, 0.4)', 
+              boxShadow: '0 4px 15px rgba(231, 76, 60, 0.4)', 
               width: isMobile ? '100%' : undefined, 
               marginTop: isMobile ? 8 : 0,
               transition: 'all 0.3s ease',

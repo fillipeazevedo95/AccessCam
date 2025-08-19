@@ -114,27 +114,27 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
       position: 'fixed',
       top: 0,
       left: 0,
-      width: '100vw',
+      width: window.innerWidth < 600 ? '100%' : '100vw',
       height: '100vh',
       background: 'rgba(0,0,0,0.7)',
       zIndex: 5000,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px'
+      padding: window.innerWidth < 600 ? '10px 0px' : '20px'
     }}>
       <div style={{ 
-        background: 'linear-gradient(135deg, #04506B 0%, #0369a1 100%)', 
-        borderRadius: 20, 
-        boxShadow: '0 25px 50px rgba(0,0,0,0.3)', 
-        padding: '20px', 
+        background: '#ffffff', 
+        borderRadius: window.innerWidth < 600 ? 0 : 15, 
+        boxShadow: '0 10px 30px rgba(0,0,0,0.2)', 
+        padding: '0', 
         minWidth: 0, 
-        maxWidth: 450, 
-        width: '90%', 
+        maxWidth: window.innerWidth < 600 ? '100%' : 450, 
+        width: window.innerWidth < 600 ? '100%' : '90%', 
         maxHeight: '85vh',
         position: 'relative', 
         boxSizing: 'border-box',
-        border: '1px solid rgba(255,255,255,0.2)',
+        border: window.innerWidth < 600 ? 'none' : '2px solid #04506B',
         overflow: 'hidden'
       }}>
         {onClose && (
@@ -160,30 +160,34 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
           }} title="Fechar">×</button>
         )}
         
+        {/* Conteúdo do modal */}
+        {/* Header azul */}
         <div style={{
-          background: 'rgba(255,255,255,0.98)',
-          borderRadius: 15,
-          padding: '20px 15px',
-          border: '1px solid rgba(255,255,255,0.3)',
-          maxHeight: '75vh',
+          background: 'linear-gradient(135deg, #04506B, #0369a1)',
+          padding: '20px',
+          borderRadius: '15px 15px 0 0',
+          margin: '-2px -2px 0 -2px'
+        }}>
+          <h2 style={{ 
+            color: '#ffffff', 
+            fontWeight: 800, 
+            fontSize: 22, 
+            margin: '0', 
+            textAlign: 'center'
+          }}>🔧 Gerenciar Usuários</h2>
+        </div>
+        
+        {/* Conteúdo branco */}
+        <div style={{
+          padding: '20px',
+          maxHeight: '60vh',
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          gap: '20px'
+          gap: '20px',
+          background: '#ffffff'
         }}>
-          {/* Título */}
-          <h2 style={{ 
-            color: '#2c3e50', 
-            fontWeight: 800, 
-            fontSize: 22, 
-            margin: '0 0 5px 0', 
-            textAlign: 'center',
-            background: 'linear-gradient(135deg, #04506B, #0369a1)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}>🔧 Gerenciar Usuários</h2>
 
           {/* Formulário de adicionar usuário */}
           <form onSubmit={handleAddUser} style={{ 
@@ -364,9 +368,9 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                       borderRadius: 8,
                       border: '1px solid rgba(102, 126, 234, 0.1)', 
                       display: 'flex', 
-                      flexDirection: window.innerWidth < 600 ? 'column' : 'row', 
+                      flexDirection: 'row', 
                       justifyContent: 'space-between', 
-                      alignItems: window.innerWidth < 600 ? 'flex-start' : 'center', 
+                      alignItems: 'center', 
                       gap: 8,
                       transition: 'all 0.3s ease',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
@@ -377,9 +381,9 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                       {editUser?.username === u.username ? (
                         <form onSubmit={handleEditSave} style={{ 
                           display: 'flex', 
-                          flexDirection: window.innerWidth < 600 ? 'column' : 'row', 
+                          flexDirection: 'row', 
                           gap: 6, 
-                          alignItems: window.innerWidth < 600 ? 'stretch' : 'center', 
+                          alignItems: 'center', 
                           width: '100%',
                           background: 'rgba(102, 126, 234, 0.05)',
                           padding: '8px',
@@ -390,30 +394,30 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                           boxSizing: 'border-box'
                         }}>
                           <input name="username" value={editForm.username || ''} onChange={handleEditChange} style={{ 
-                            width: window.innerWidth < 600 ? '100%' : 70, 
+                            width: 80, 
                             minWidth: 60,
-                            padding: '6px 8px', 
+                            padding: '6px 4px', 
                             borderRadius: 4, 
                             border: '2px solid #e1e8ed',
-                            fontSize: 12,
+                            fontSize: 11,
                             outline: 'none',
                             boxSizing: 'border-box'
                           }} />
                           <input name="password" value={editForm.password || ''} onChange={handleEditChange} style={{ 
-                            width: window.innerWidth < 600 ? '100%' : 70, 
+                            width: 80, 
                             minWidth: 60,
-                            padding: '6px 8px', 
+                            padding: '6px 4px', 
                             borderRadius: 4, 
                             border: '2px solid #e1e8ed',
-                            fontSize: 12,
+                            fontSize: 11,
                             outline: 'none',
                             boxSizing: 'border-box'
                           }} />
                           <select name="role" value={editForm.role} onChange={handleEditChange} style={{ 
-                            padding: '6px 8px', 
+                            padding: '6px 4px', 
                             borderRadius: 4, 
                             border: '2px solid #e1e8ed', 
-                            width: window.innerWidth < 600 ? '100%' : 60,
+                            width: 60,
                             minWidth: 50,
                             fontSize: 12,
                             outline: 'none',
@@ -424,17 +428,17 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                             <option value="prevencao">Prevenção</option>
                           </select>
                           <button type="submit" style={{ 
-                            background: 'linear-gradient(135deg, #10ac84, #06d6a0)', 
+                            background: 'linear-gradient(135deg, #27ae60, #2ecc71)', 
                             color: '#fff', 
                             border: 0, 
                             borderRadius: 4, 
-                            padding: '6px 10px', 
+                            padding: '6px 8px', 
                             fontWeight: 600, 
                             fontSize: 11, 
                             cursor: 'pointer', 
-                            width: window.innerWidth < 600 ? '100%' : 32,
+                            width: 32,
                             minWidth: 32,
-                            boxShadow: '0 2px 8px rgba(16, 172, 132, 0.3)',
+                            boxShadow: '0 2px 8px rgba(39, 174, 96, 0.4)',
                             transition: 'all 0.3s ease',
                             boxSizing: 'border-box'
                           }}>💾</button>
@@ -443,11 +447,11 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                             color: '#fff', 
                             border: 0, 
                             borderRadius: 4, 
-                            padding: '6px 10px', 
+                            padding: '6px 8px', 
                             fontWeight: 600, 
                             fontSize: 11, 
                             cursor: 'pointer', 
-                            width: window.innerWidth < 600 ? '100%' : 32,
+                            width: 32,
                             minWidth: 32,
                             boxShadow: '0 2px 8px rgba(127, 140, 141, 0.3)',
                             transition: 'all 0.3s ease',
@@ -491,7 +495,7 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                             flexShrink: 0
                           }}>
                             <button onClick={() => handleEdit(u)} style={{ 
-                              background: 'linear-gradient(135deg, #ffa502, #ff6348)', 
+                              background: 'linear-gradient(135deg, #04506B, #0369a1)', 
                               color: '#fff', 
                               border: 0, 
                               borderRadius: 4, 
@@ -499,13 +503,13 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                               fontWeight: 600, 
                               fontSize: 10, 
                               cursor: 'pointer',
-                              boxShadow: '0 2px 8px rgba(255, 165, 2, 0.3)',
+                              boxShadow: '0 2px 8px rgba(4, 80, 107, 0.4)',
                               transition: 'all 0.3s ease',
                               minWidth: 28,
                               boxSizing: 'border-box'
                             }}>✏️</button>
                             <button onClick={() => handleDelete(u.username)} style={{ 
-                              background: 'linear-gradient(135deg, #ff3838, #ff4757)', 
+                              background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
                               color: '#fff', 
                               border: 0, 
                               borderRadius: 4, 
@@ -513,7 +517,7 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
                               fontWeight: 600, 
                               fontSize: 10, 
                               cursor: 'pointer',
-                              boxShadow: '0 2px 8px rgba(255, 56, 56, 0.3)',
+                              boxShadow: '0 2px 8px rgba(231, 76, 60, 0.4)',
                               transition: 'all 0.3s ease',
                               minWidth: 28,
                               boxSizing: 'border-box'

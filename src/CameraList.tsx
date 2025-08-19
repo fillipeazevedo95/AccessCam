@@ -274,11 +274,43 @@ export default function CameraList() {
     ));
 
   return (
-    <div className="main-container" style={{ minHeight: '100vh', background: '#f3f4f6', padding: 0, margin: 0 }}>
+    <div className="main-container" style={{ 
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #04506B 0%, #0369a1 100%)', 
+      padding: 0, 
+      margin: 0,
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
       {/* Modal de cadastro/edição de câmera */}
       {showModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#0008', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <form onSubmit={handleSubmit} style={{ background: '#fff', borderRadius: 14, padding: 32, minWidth: 320, boxShadow: '0 4px 24px #0003', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
+        <div style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100vw', 
+          height: '100vh', 
+          background: 'rgba(0,0,0,0.7)', 
+          zIndex: 1000, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          backdropFilter: 'blur(5px)'
+        }}>
+          <form onSubmit={handleSubmit} style={{ 
+            background: '#fff', 
+            borderRadius: 20, 
+            padding: 32, 
+            minWidth: 320, 
+            maxWidth: 500,
+            width: '90%',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.3)', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: 16, 
+            position: 'relative',
+            border: '1px solid rgba(255,255,255,0.2)'
+          }}>
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{editId ? 'Editar Câmera' : 'Cadastrar Câmera'}</h2>
             <input name="loja_nome" value={form.loja_nome || ''} onChange={handleChange} placeholder="Nome da loja" required style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
             <input name="loja_numero" value={form.loja_numero || ''} onChange={handleChange} placeholder="Número da loja" required style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
@@ -315,14 +347,41 @@ export default function CameraList() {
         </div>
       )}
       {/* Header */}
-      <header className={headerMin ? 'header-min' : ''} style={{ background: '#2563eb', color: '#fff', padding: headerMin ? '8px 0' : '18px 0 12px 0', marginBottom: 24, boxShadow: '0 2px 8px #0002', transition: 'padding 0.2s' }}>
+      <header className={headerMin ? 'header-min' : ''} style={{ 
+        background: 'rgba(255,255,255,0.95)', 
+        color: '#2c3e50', 
+        padding: headerMin ? '12px 20px' : '20px 20px', 
+        marginBottom: 0, 
+        boxShadow: '0 4px 20px rgba(0,0,0,0.1)', 
+        transition: 'padding 0.3s ease',
+        backdropFilter: 'blur(10px)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        borderBottom: '1px solid rgba(102, 126, 234, 0.2)'
+      }}>
         <div style={{ maxWidth: '90%', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <img src="/logo.png" alt="Logo" style={{ height: headerMin ? 28 : 38, marginRight: 10, transition: 'height 0.2s' }} />
-            <span style={{ fontWeight: 700, fontSize: headerMin ? 17 : 22, letterSpacing: 1, transition: 'font-size 0.2s' }}>AccessCam</span>
+            <span style={{ 
+              fontWeight: 800, 
+              fontSize: headerMin ? 18 : 24, 
+              letterSpacing: 1, 
+              transition: 'font-size 0.2s',
+              color: '#04506B',
+              textShadow: '0 2px 4px rgba(4, 80, 107, 0.3)'
+            }}>🎥 AccessCam</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 18, flexWrap: isMobile ? 'wrap' : undefined }}>
-            <span style={{ fontWeight: 500, fontSize: headerMin ? 13 : 16 }}>Usuário: {user?.username || '---'}</span>
+            <span style={{ 
+              fontWeight: 600, 
+              fontSize: headerMin ? 14 : 16,
+              color: '#2c3e50',
+              background: 'rgba(102, 126, 234, 0.1)',
+              padding: '6px 12px',
+              borderRadius: 20,
+              border: '1px solid rgba(102, 126, 234, 0.2)'
+            }}>👤 {user?.username || '---'}</span>
             {/* Menu suspenso de outros usuários, só para admin */}
             {isAdmin && (
               <>
@@ -338,7 +397,22 @@ export default function CameraList() {
                      ))}
                   </select>
                 </div>
-                <button onClick={() => setShowUserManager(true)} style={{ background: '#fff', color: '#2563eb', border: 0, borderRadius: 8, padding: isMobile ? '10px 0' : '6px 18px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? 17 : 15, boxShadow: '0 1px 4px #0001', width: isMobile ? '100%' : undefined, marginTop: isMobile ? 8 : 0 }}>Gerenciar Usuários</button>
+                <button onClick={() => setShowUserManager(true)} style={{ 
+                  background: 'linear-gradient(135deg, #04506B, #0369a1)', 
+                  color: '#fff', 
+                  border: 0, 
+                  borderRadius: 12, 
+                  padding: isMobile ? '12px 0' : '8px 20px', 
+                  fontWeight: 700, 
+                  cursor: 'pointer', 
+                  fontSize: isMobile ? 17 : 15, 
+                  boxShadow: '0 4px 15px rgba(4, 80, 107, 0.4)', 
+                  width: isMobile ? '100%' : undefined, 
+                  marginTop: isMobile ? 8 : 0,
+                  transition: 'all 0.3s ease',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>🔧 Gerenciar Usuários</button>
               </>
             )}
             <button onClick={() => {
@@ -347,19 +421,58 @@ export default function CameraList() {
                 if (key !== 'lastUser') localStorage.removeItem(key);
               });
               window.location.reload();
-            }} style={{ background: '#e11d48', color: '#fff', border: 0, borderRadius: 8, padding: isMobile ? '10px 0' : '6px 18px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? 17 : 15, boxShadow: '0 1px 4px #0001', width: isMobile ? '100%' : undefined, marginTop: isMobile ? 8 : 0 }}>Sair</button>
+            }} style={{ 
+              background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)', 
+              color: '#fff', 
+              border: 0, 
+              borderRadius: 12, 
+              padding: isMobile ? '12px 0' : '8px 20px', 
+              fontWeight: 700, 
+              cursor: 'pointer', 
+              fontSize: isMobile ? 17 : 15, 
+              boxShadow: '0 4px 15px rgba(238, 90, 36, 0.4)', 
+              width: isMobile ? '100%' : undefined, 
+              marginTop: isMobile ? 8 : 0,
+              transition: 'all 0.3s ease',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>🚪 Sair</button>
           </div>
         </div>
       </header>
 
       {/* Busca e filtros */}
-      <div className="filters-bar" style={{ maxWidth: '90%', margin: '0 auto', marginBottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="filters-bar" style={{ 
+        maxWidth: '90%', 
+        margin: '30px auto 30px auto', 
+        display: 'flex', 
+        gap: 15, 
+        flexWrap: 'wrap', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'rgba(255,255,255,0.9)',
+        padding: '25px',
+        borderRadius: 20,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.3)'
+      }}>
         <input
           type="text"
-          placeholder="Buscar loja, número, cidade ou estado..."
+          placeholder="🔍 Buscar loja, número, cidade ou estado..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: 180, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}
+          style={{ 
+            flex: 1, 
+            minWidth: 250, 
+            padding: '12px 16px', 
+            borderRadius: 12, 
+            border: '2px solid #e1e8ed', 
+            fontSize: 15,
+            outline: 'none',
+            transition: 'all 0.3s ease',
+            background: '#fff'
+          }}
         />
         <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as any)} style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
           <option value="all">Todos status</option>
@@ -379,15 +492,46 @@ export default function CameraList() {
             <option key={cidade} value={cidade}>{cidade}</option>
           ))}
         </select>
-        <button onClick={() => setShowModal(true)} style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 8, padding: isMobile ? '10px 0' : '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? 17 : 16, boxShadow: '0 1px 4px #0001', width: isMobile ? '100%' : undefined, marginTop: isMobile ? 8 : 0 }}>Cadastrar Câmera</button>
+        <button onClick={() => setShowModal(true)} style={{ 
+          background: 'linear-gradient(135deg, #10ac84, #06d6a0)', 
+          color: '#fff', 
+          border: 0, 
+          borderRadius: 12, 
+          padding: isMobile ? '12px 24px' : '12px 28px', 
+          fontWeight: 700, 
+          cursor: 'pointer', 
+          fontSize: isMobile ? 16 : 16, 
+          boxShadow: '0 4px 15px rgba(16, 172, 132, 0.4)', 
+          width: isMobile ? '100%' : undefined, 
+          marginTop: isMobile ? 8 : 0,
+          transition: 'all 0.3s ease',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px'
+        }}>🎥 Cadastrar Câmera</button>
       </div>
 
       {/* Botão para TI acessar gerenciamento de usuários */}
       {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
       {loading ? (
-        <div style={{ textAlign: 'center', color: '#2563eb', fontWeight: 700, fontSize: 22, marginTop: 40 }}>Carregando...</div>
+        <div style={{ 
+          textAlign: 'center', 
+          fontWeight: 700, 
+          fontSize: 24, 
+          marginTop: 60,
+          background: 'rgba(255,255,255,0.9)',
+          color: '#2c3e50',
+          padding: '30px',
+          borderRadius: 20,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+          maxWidth: '400px',
+          margin: '60px auto'
+        }}>⏳ Carregando...</div>
       ) : (
-  <div className="camera-list-container" style={{ maxWidth: '90%', margin: '0 auto' }}>{cameraCards}</div>
+        <div className="camera-list-container" style={{ 
+          maxWidth: '90%', 
+          margin: '0 auto',
+          paddingBottom: '40px'
+        }}>{cameraCards}</div>
       )}
     </div>
   );

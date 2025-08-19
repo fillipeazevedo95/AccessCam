@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import UserManager from './UserManager.tsx';
 import { useAuth } from './auth.tsx';
 import { useAllUsers } from './useAllUsers.ts';
-import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaCheckCircle, FaTimesCircle, FaExclamationCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaExclamationCircle, FaEye, FaEyeSlash, FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaBars, FaTimes } from 'react-icons/fa';
 import { MdWifiOff } from 'react-icons/md';
 
 type Camera = {
@@ -25,17 +25,11 @@ type Camera = {
   owner?: string;
 };
 
-function getBorderColor(status: string) {
-  if (status === 'online') return '#22c55e';
-  if (status === 'offline') return '#e11d48';
-  if (status === 'sem sinal') return '#facc15';
-  return '#e5e7eb';
-}
-
 export default function CameraList() {
   // Detecta se está em mobile
   const [isMobile, setIsMobile] = useState(false);
   const [headerMin, setHeaderMin] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     function handleResize() {
       setIsMobile(window.innerWidth <= 600);
@@ -46,6 +40,7 @@ export default function CameraList() {
   }, []);
   const [showSenha, setShowSenha] = React.useState<{ [id: number]: boolean }>({});
   const [showUsuario, setShowUsuario] = React.useState<{ [id: number]: boolean }>({});
+  const [showCameraDetails, setShowCameraDetails] = React.useState<{ [id: number]: boolean }>({});
   useEffect(() => {
     if (isMobile) setHeaderMin(true);
     else setHeaderMin(false);
@@ -90,6 +85,69 @@ export default function CameraList() {
   const [statusFiltro, setStatusFiltro] = useState<'all' | 'online' | 'offline' | 'sem sinal'>('all');
   const [estadoFiltro, setEstadoFiltro] = useState<string>('all');
   const [cidadeFiltro, setCidadeFiltro] = useState<string>('all');
+  
+  // Estados para paginação
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [alturaJanela, setAlturaJanela] = useState(window.innerHeight);
+  
+  // Calcula itens por página baseado na altura da tela
+  const calcularItensPorPagina = () => {
+    const alturaHeader = 80; // Altura aproximada do header (reduzida)
+    const alturaFiltros = 80; // Altura aproximada da barra de filtros
+    const alturaRodape = 80; // Altura aproximada do rodapé e controles de paginação (reduzida)
+    const alturaCameraCard = isMobile ? 350 : 220; // Altura mais realista de cada card de câmera
+    const espacamentoExtra = 20; // Margem de segurança menor
+    
+    const alturaDisponivel = alturaJanela - alturaHeader - alturaFiltros - alturaRodape - espacamentoExtra;
+    const itensPorPagina = Math.max(1, Math.floor(alturaDisponivel / alturaCameraCard));
+    
+    console.log('Cálculo de itens por página:', {
+      alturaJanela,
+      alturaDisponivel,
+      alturaCameraCard,
+      itensPorPagina,
+      isMobile
+    });
+    
+    // Mínimo de 4, máximo de 20 itens por página
+    return Math.min(20, Math.max(4, itensPorPagina));
+  };
+  
+  const itensPorPagina = calcularItensPorPagina();
+  
+  // Effect para redimensionamento da janela
+  useEffect(() => {
+    const handleResize = () => {
+      setAlturaJanela(window.innerHeight);
+      // Reset para primeira página quando redimensionar para evitar páginas vazias
+      setPaginaAtual(1);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Funções de navegação da paginação
+  const irParaPagina = (pagina: number) => {
+    setPaginaAtual(pagina);
+  };
+
+  const paginaAnterior = () => {
+    if (paginaAtual > 1) {
+      setPaginaAtual(paginaAtual - 1);
+    }
+  };
+
+  const proximaPagina = (totalPaginas: number) => {
+    if (paginaAtual < totalPaginas) {
+      setPaginaAtual(paginaAtual + 1);
+    }
+  };
+
+  // Resetar para primeira página quando filtros mudarem
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [search, statusFiltro, estadoFiltro, cidadeFiltro, usuarioSelecionado]);
 
   // Listas únicas de estados e cidades cadastrados
   const estadosCadastrados = Array.from(new Set(cameras.map(c => c.estado).filter(Boolean)));
@@ -182,7 +240,7 @@ export default function CameraList() {
     setLoading(false);
   }
 
-   const cameraCards = cameras
+   const camerasFiltradas = cameras
      .filter(cam => {
        if (!isAdmin) {
          // Usuário comum só vê suas próprias câmeras
@@ -214,9 +272,32 @@ export default function CameraList() {
        if (isNaN(numA)) return 1;
        if (isNaN(numB)) return -1;
        return numA - numB;
-     })
-    .map(cam => (
-  <div key={cam.id} className="camera-card" style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #0001', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid #000', marginBottom: 8 }}>
+     });
+
+  // Cálculos da paginação
+  const totalPaginas = Math.ceil(camerasFiltradas.length / itensPorPagina);
+  const indiceInicio = (paginaAtual - 1) * itensPorPagina;
+  const indiceFim = indiceInicio + itensPorPagina;
+  const camerasPaginadas = camerasFiltradas.slice(indiceInicio, indiceFim);
+
+   const cameraCards = camerasPaginadas.map(cam => (
+  <div key={cam.id} className="camera-card" style={{ 
+    background: '#fff', 
+    borderRadius: isMobile ? 8 : 12, 
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)', 
+    padding: isMobile ? 12 : 14, 
+    display: 'flex', 
+    flexDirection: 'column', 
+    gap: isMobile ? 6 : 8, 
+    border: '1px solid #f1f5f9', 
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    width: '100%',
+    boxSizing: 'border-box',
+    minHeight: 'auto',
+    flex: 'none'
+  }}>
   <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8, flexWrap: isMobile ? 'wrap' : undefined }}>
           <FaStore color="#2563eb" size={28} />
           <span style={{ fontWeight: 700, fontSize: 20 }}>{cam.loja_nome} {cam.loja_numero && <span style={{ fontWeight: 400, fontSize: 16, color: '#2563eb' }}>#{cam.loja_numero}</span>}</span>
@@ -243,23 +324,7 @@ export default function CameraList() {
             <button
               onClick={() => handleEdit(cam)}
               style={{
-                background: '#e0e7ef',
-                color: '#334155',
-                border: 0,
-                borderRadius: 8,
-                padding: isMobile ? '10px 0' : '6px 16px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontSize: isMobile ? 17 : 15,
-                width: isMobile ? '100%' : 110,
-                minWidth: 90,
-                margin: 0
-              }}
-            >Editar</button>
-            <button
-              onClick={() => handleDelete(cam.id)}
-              style={{
-                background: '#e11d48',
+                background: 'linear-gradient(135deg, #04506B, #0369a1)',
                 color: '#fff',
                 border: 0,
                 borderRadius: 8,
@@ -269,73 +334,141 @@ export default function CameraList() {
                 fontSize: isMobile ? 17 : 15,
                 width: isMobile ? '100%' : 110,
                 minWidth: 90,
-                margin: 0
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                boxShadow: '0 2px 8px rgba(4, 80, 107, 0.3)'
               }}
-            >Excluir</button>
+            ><FaEdit size={14} /> Editar</button>
+            <button
+              onClick={() => handleDelete(cam.id)}
+              style={{
+                background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
+                color: '#fff',
+                border: 0,
+                borderRadius: 8,
+                padding: isMobile ? '10px 0' : '6px 16px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: isMobile ? 17 : 15,
+                width: isMobile ? '100%' : 110,
+                minWidth: 90,
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                boxShadow: '0 2px 8px rgba(231, 76, 60, 0.3)'
+              }}
+            ><FaTrash size={14} /> Excluir</button>
+            <button 
+              onClick={() => setShowCameraDetails(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+              style={{
+                background: showCameraDetails[cam.id] 
+                  ? 'linear-gradient(135deg, #0ea5e9, #0284c7)' 
+                  : 'linear-gradient(135deg, #04506B, #0369a1)',
+                color: '#fff',
+                border: 0,
+                borderRadius: 8,
+                padding: isMobile ? '10px 0' : '6px 16px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: isMobile ? 17 : 15,
+                width: isMobile ? '100%' : 110,
+                minWidth: 90,
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                boxShadow: showCameraDetails[cam.id] 
+                  ? '0 2px 8px rgba(14, 165, 233, 0.3)'
+                  : '0 2px 8px rgba(4, 80, 107, 0.3)'
+              }}
+            >
+              {showCameraDetails[cam.id] ? <FaEyeSlash size={14} /> : <FaEye size={14} />} 
+              {showCameraDetails[cam.id] ? 'Esconder' : 'Mostrar'}
+            </button>
           </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 15 }}>
-          {cam.cloud && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaCloud color="#0ea5e9" size={18} /> Cloud: {cam.cloud}</span>}
-          {cam.camera_id && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaIdBadge color="#6366f1" size={18} /> ID: {cam.camera_id}</span>}
-          {cam.ddns && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#16a34a" size={18} /> DDNS: {cam.ddns}</span>}
-          {cam.usuario && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
-              <FaUser color="#f59e42" size={18} /> 
-              Usuário: {showUsuario[cam.id] ? cam.usuario : '••••••••'}
-              <button 
-                onClick={() => setShowUsuario(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
-                style={{
-                  background: 'linear-gradient(135deg, #04506B, #0369a1)',
-                  color: '#fff',
-                  border: 0,
-                  borderRadius: 4,
-                  padding: '2px 6px',
-                  cursor: 'pointer',
-                  fontSize: 10,
-                  marginLeft: 4
-                }}
-              >
-                {showUsuario[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
-              </button>
-            </span>
-          )}
-          {cam.senha && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
-              <FaKey color="#eab308" size={18} /> 
-              Senha: {showSenha[cam.id] ? cam.senha : '••••••••'}
-              <button 
-                onClick={() => setShowSenha(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
-                style={{
-                  background: 'linear-gradient(135deg, #04506B, #0369a1)',
-                  color: '#fff',
-                  border: 0,
-                  borderRadius: 4,
-                  padding: '2px 6px',
-                  cursor: 'pointer',
-                  fontSize: 10,
-                  marginLeft: 4
-                }}
-              >
-                {showSenha[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
-              </button>
-            </span>
-          )}
-          {cam.porta_servico && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaWifi color="#2563eb" size={18} /> Porta Serviço: {cam.porta_servico}</span>}
-          {cam.porta_web && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><MdWifiOff color="#2563eb" size={18} /> Porta Web: {cam.porta_web}</span>}
-          {(cam.cidade || cam.estado) && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#2563eb" size={18} /> {cam.cidade} {cam.estado && <span style={{ fontWeight: 400 }}>|</span>} {cam.estado}</span>}
-        </div>
+        {showCameraDetails[cam.id] && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 15 }}>
+            {cam.cloud && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaCloud color="#0ea5e9" size={18} /> Cloud: {cam.cloud}</span>}
+            {cam.camera_id && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaIdBadge color="#6366f1" size={18} /> ID: {cam.camera_id}</span>}
+            {cam.ddns && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#16a34a" size={18} /> DDNS: {cam.ddns}</span>}
+            {cam.usuario && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
+                <FaUser color="#f59e42" size={18} /> 
+                Usuário: {showUsuario[cam.id] ? cam.usuario : '••••••••'}
+                <button 
+                  onClick={() => setShowUsuario(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+                  style={{
+                    background: 'linear-gradient(135deg, #04506B, #0369a1)',
+                    color: '#fff',
+                    border: 0,
+                    borderRadius: 4,
+                    padding: '2px 6px',
+                    cursor: 'pointer',
+                    fontSize: 10,
+                    marginLeft: 4
+                  }}
+                >
+                  {showUsuario[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
+                </button>
+              </span>
+            )}
+            {cam.senha && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
+                <FaKey color="#eab308" size={18} /> 
+                Senha: {showSenha[cam.id] ? cam.senha : '••••••••'}
+                <button 
+                  onClick={() => setShowSenha(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+                  style={{
+                    background: 'linear-gradient(135deg, #04506B, #0369a1)',
+                    color: '#fff',
+                    border: 0,
+                    borderRadius: 4,
+                    padding: '2px 6px',
+                    cursor: 'pointer',
+                    fontSize: 10,
+                    marginLeft: 4
+                  }}
+                >
+                  {showSenha[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
+                </button>
+              </span>
+            )}
+            {cam.porta_servico && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaWifi color="#2563eb" size={18} /> Porta Serviço: {cam.porta_servico}</span>}
+            {cam.porta_web && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><MdWifiOff color="#2563eb" size={18} /> Porta Web: {cam.porta_web}</span>}
+            {(cam.cidade || cam.estado) && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#2563eb" size={18} /> {cam.cidade} {cam.estado && <span style={{ fontWeight: 400 }}>|</span>} {cam.estado}</span>}
+          </div>
+        )}
       </div>
     ));
 
   return (
-    <div className="main-container" style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #04506B 0%, #0369a1 100%)', 
-      padding: 0, 
-      margin: 0,
-      display: 'flex',
-      flexDirection: 'column'
-    }}>
+    <div 
+      className="main-container" 
+      style={{ 
+        minHeight: '100vh', 
+        height: isMobile ? 'auto' : '100vh',
+        background: '#ffffff', 
+        padding: 0, 
+        margin: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: isMobile ? 'visible' : 'hidden',
+        boxSizing: 'border-box'
+      }}
+      onClick={() => {
+        // Fechar menu mobile se clicar fora
+        if (mobileMenuOpen) {
+          setMobileMenuOpen(false);
+        }
+      }}
+    >
       {/* Modal de cadastro/edição de câmera */}
       {showModal && (
         <div style={{ 
@@ -402,8 +535,8 @@ export default function CameraList() {
       )}
       {/* Header */}
       <header className={headerMin ? 'header-min' : ''} style={{ 
-        background: 'rgba(255,255,255,0.95)', 
-        color: '#2c3e50', 
+        background: '#ffffff',
+        color: '#04506B', 
         padding: headerMin ? '12px 20px' : '20px 20px', 
         marginBottom: 0, 
         boxShadow: '0 4px 20px rgba(0,0,0,0.1)', 
@@ -412,181 +545,502 @@ export default function CameraList() {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        borderBottom: '1px solid rgba(102, 126, 234, 0.2)'
+        borderBottom: '1px solid rgba(4, 80, 107, 0.2)'
       }}>
-        <div style={{ maxWidth: '90%', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ maxWidth: '100%', margin: '0 auto', padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <img src="/logo.png" alt="Logo" style={{ height: headerMin ? 28 : 38, marginRight: 10, transition: 'height 0.2s' }} />
-            <span style={{ 
-              fontWeight: 800, 
-              fontSize: headerMin ? 18 : 24, 
-              letterSpacing: 1, 
-              transition: 'font-size 0.2s',
-              color: '#04506B',
-              textShadow: '0 2px 4px rgba(4, 80, 107, 0.3)'
-            }}>🎥 AccessCam</span>
+            <img 
+              src="https://api.grupoginseng.com.br/img/logo-ginseng-marcas.png" 
+              alt="Ginseng Logo" 
+              style={{ 
+                height: headerMin ? 35 : 45, 
+                width: 'auto',
+                marginLeft: 50,
+                transition: 'height 0.2s',
+                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+              }} 
+            />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 18, flexWrap: isMobile ? 'wrap' : undefined }}>
-            <span style={{ 
-              fontWeight: 600, 
-              fontSize: headerMin ? 14 : 16,
-              color: '#2c3e50',
-              background: 'rgba(102, 126, 234, 0.1)',
-              padding: '6px 12px',
-              borderRadius: 20,
-              border: '1px solid rgba(102, 126, 234, 0.2)'
-            }}>👤 {user?.username || '---'}</span>
-            {/* Menu suspenso de outros usuários, só para admin */}
-            {isAdmin && (
-              <>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={usuarioSelecionado}
-                    onChange={e => setUsuarioSelecionado(e.target.value)}
-                    style={{ padding: '6px 18px', borderRadius: 8, border: 0, fontWeight: 700, color: '#2563eb', background: '#fff', fontSize: 15, boxShadow: '0 1px 4px #0001', cursor: 'pointer' }}
-                    title="Visualizar câmeras de outro usuário"
-                  >
-                     {allUsers.map(u => (
-                       <option key={u.username} value={u.username}>{u.username}</option>
-                     ))}
-                  </select>
+          
+          {isMobile ? (
+            // Menu mobile com toggle
+            <>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#04506B',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  transition: 'background 0.2s ease'
+                }}
+              >
+                {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+              </button>
+              
+              {mobileMenuOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: '20px',
+                  background: '#fff',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
+                  padding: '15px',
+                  minWidth: '250px',
+                  zIndex: 200,
+                  border: '1px solid rgba(102, 126, 234, 0.2)'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <span style={{ 
+                      fontWeight: 600, 
+                      fontSize: 14,
+                      color: '#2c3e50',
+                      background: 'rgba(102, 126, 234, 0.1)',
+                      padding: '8px 12px',
+                      borderRadius: 20,
+                      border: '1px solid rgba(102, 126, 234, 0.2)',
+                      textAlign: 'center'
+                    }}>👤 {user?.username || '---'}</span>
+                    
+                    {isAdmin && (
+                      <>
+                        <select
+                          value={usuarioSelecionado}
+                          onChange={e => setUsuarioSelecionado(e.target.value)}
+                          style={{ 
+                            padding: '8px 12px', 
+                            borderRadius: 8, 
+                            border: '2px solid #04506B', 
+                            fontWeight: 600, 
+                            color: '#04506B', 
+                            background: '#ffffff', 
+                            fontSize: 14,
+                            width: '100%',
+                            boxShadow: '0 2px 8px rgba(4, 80, 107, 0.3)',
+                            cursor: 'pointer'
+                          }}
+                          title="Visualizar câmeras de outro usuário"
+                        >
+                           {allUsers.map(u => (
+                             <option key={u.username} value={u.username}>{u.username}</option>
+                           ))}
+                        </select>
+                        
+                        <button 
+                          onClick={() => { setShowUserManager(true); setMobileMenuOpen(false); }}
+                          style={{ 
+                            background: 'linear-gradient(135deg, #04506B, #0369a1)', 
+                            color: '#fff', 
+                            border: 0, 
+                            borderRadius: 8, 
+                            padding: '10px', 
+                            fontWeight: 600, 
+                            cursor: 'pointer', 
+                            fontSize: 14,
+                            width: '100%',
+                            textAlign: 'center'
+                          }}
+                        >
+                          🔧 Gerenciar Usuários
+                        </button>
+                      </>
+                    )}
+                    
+                    <button 
+                      onClick={() => {
+                        Object.keys(localStorage).forEach(key => {
+                          if (key !== 'lastUser') localStorage.removeItem(key);
+                        });
+                        window.location.reload();
+                      }}
+                      style={{ 
+                        background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
+                        color: '#fff', 
+                        border: 0, 
+                        borderRadius: 8, 
+                        padding: '10px', 
+                        fontWeight: 600, 
+                        cursor: 'pointer', 
+                        fontSize: 14,
+                        width: '100%',
+                        textAlign: 'center'
+                      }}
+                    >
+                      🚪 Sair
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => setShowUserManager(true)} style={{ 
-                  background: 'linear-gradient(135deg, #04506B, #0369a1)', 
-                  color: '#fff', 
-                  border: 0, 
-                  borderRadius: 12, 
-                  padding: isMobile ? '12px 0' : '8px 20px', 
-                  fontWeight: 700, 
-                  cursor: 'pointer', 
-                  fontSize: isMobile ? 17 : 15, 
-                  boxShadow: '0 4px 15px rgba(4, 80, 107, 0.4)', 
-                  width: isMobile ? '100%' : undefined, 
-                  marginTop: isMobile ? 8 : 0,
-                  transition: 'all 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}>🔧 Gerenciar Usuários</button>
-              </>
-            )}
-            <button onClick={() => {
-              // Remove apenas dados de sessão, mantendo o lastUser
-              Object.keys(localStorage).forEach(key => {
-                if (key !== 'lastUser') localStorage.removeItem(key);
-              });
-              window.location.reload();
-            }} style={{ 
-              background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
-              color: '#fff', 
-              border: 0, 
-              borderRadius: 12, 
-              padding: isMobile ? '12px 0' : '8px 20px', 
-              fontWeight: 700, 
-              cursor: 'pointer', 
-              fontSize: isMobile ? 17 : 15, 
-              boxShadow: '0 4px 15px rgba(231, 76, 60, 0.4)', 
-              width: isMobile ? '100%' : undefined, 
-              marginTop: isMobile ? 8 : 0,
-              transition: 'all 0.3s ease',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px'
-            }}>🚪 Sair</button>
-          </div>
+              )}
+            </>
+          ) : (
+            // Menu desktop
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              <span style={{ 
+                fontWeight: 600, 
+                fontSize: headerMin ? 14 : 16,
+                color: '#2c3e50',
+                background: 'rgba(102, 126, 234, 0.1)',
+                padding: '6px 12px',
+                borderRadius: 20,
+                border: '1px solid rgba(102, 126, 234, 0.2)'
+              }}>👤 {user?.username || '---'}</span>
+              
+              {isAdmin && (
+                <>
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      value={usuarioSelecionado}
+                      onChange={e => setUsuarioSelecionado(e.target.value)}
+                      style={{ 
+                        padding: '6px 18px', 
+                        borderRadius: 8, 
+                        border: '2px solid #04506B', 
+                        fontWeight: 700, 
+                        color: '#04506B', 
+                        background: '#ffffff', 
+                        fontSize: 15, 
+                        boxShadow: '0 2px 8px rgba(4, 80, 107, 0.3)', 
+                        cursor: 'pointer' 
+                      }}
+                      title="Visualizar câmeras de outro usuário"
+                    >
+                       {allUsers.map(u => (
+                         <option key={u.username} value={u.username}>{u.username}</option>
+                       ))}
+                    </select>
+                  </div>
+                  <button onClick={() => setShowUserManager(true)} style={{ 
+                    background: 'linear-gradient(135deg, #04506B, #0369a1)', 
+                    color: '#fff', 
+                    border: 0, 
+                    borderRadius: 12, 
+                    padding: '8px 20px', 
+                    fontWeight: 700, 
+                    cursor: 'pointer', 
+                    fontSize: 15, 
+                    boxShadow: '0 4px 15px rgba(4, 80, 107, 0.4)', 
+                    transition: 'all 0.3s ease',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>🔧 Gerenciar Usuários</button>
+                </>
+              )}
+              <button onClick={() => {
+                Object.keys(localStorage).forEach(key => {
+                  if (key !== 'lastUser') localStorage.removeItem(key);
+                });
+                window.location.reload();
+              }} style={{ 
+                background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
+                color: '#fff', 
+                border: 0, 
+                borderRadius: 12, 
+                padding: '8px 20px', 
+                fontWeight: 700, 
+                cursor: 'pointer', 
+                fontSize: 15, 
+                boxShadow: '0 4px 15px rgba(231, 76, 60, 0.4)', 
+                transition: 'all 0.3s ease',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>🚪 Sair</button>
+            </div>
+          )}
         </div>
       </header>
 
       {/* Busca e filtros */}
       <div className="filters-bar" style={{ 
-        maxWidth: '90%', 
-        margin: '30px auto 30px auto', 
+        width: '100%',
+        maxWidth: '100%', 
+        margin: '0', 
         display: 'flex', 
-        gap: 15, 
-        flexWrap: 'wrap', 
-        alignItems: 'center', 
+        gap: isMobile ? 10 : 15, 
+        flexDirection: isMobile ? 'column' : 'row',
+        flexWrap: isMobile ? 'nowrap' : 'wrap', 
+        alignItems: isMobile ? 'stretch' : 'center', 
         justifyContent: 'center',
         background: 'rgba(255,255,255,0.9)',
-        padding: '25px',
-        borderRadius: 20,
-        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.3)'
+        padding: isMobile ? '15px 20px' : '20px 20px',
+        borderRadius: 0,
+        boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+        borderTop: '1px solid rgba(0,0,0,0.1)',
+        borderBottom: '1px solid rgba(0,0,0,0.1)',
+        boxSizing: 'border-box'
       }}>
         <input
           type="text"
-          placeholder="🔍 Buscar loja, número, cidade ou estado..."
+          placeholder="🔍 Buscar loja, número, cidade..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{ 
-            flex: 1, 
-            minWidth: 250, 
-            padding: '12px 16px', 
-            borderRadius: 12, 
-            border: '2px solid #e1e8ed', 
-            fontSize: 15,
+            width: isMobile ? '100%' : 'auto',
+            flex: isMobile ? 'none' : '1 1 200px', 
+            minWidth: isMobile ? '100%' : 200, 
+            maxWidth: isMobile ? '100%' : 300,
+            padding: isMobile ? '12px 16px' : '12px 16px', 
+            borderRadius: 8, 
+            border: '1px solid #e1e8ed', 
+            fontSize: isMobile ? 16 : 15,
             outline: 'none',
             transition: 'all 0.3s ease',
-            background: '#fff'
+            background: '#fff',
+            boxSizing: 'border-box'
           }}
         />
-        <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as any)} style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
-          <option value="all">Todos status</option>
-          <option value="online">Online</option>
-          <option value="offline">Offline</option>
-          <option value="sem sinal">No Sinal</option>
-        </select>
-        <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)} style={{ width: 90, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
-          <option value="all">Estados</option>
-          {estadosCadastrados.map(estado => (
-            <option key={estado} value={estado}>{estado}</option>
-          ))}
-        </select>
-        <select value={cidadeFiltro} onChange={e => setCidadeFiltro(e.target.value)} style={{ width: 120, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
-          <option value="all">Cidades</option>
-          {cidadesCadastradas.map(cidade => (
-            <option key={cidade} value={cidade}>{cidade}</option>
-          ))}
-        </select>
-        <button onClick={() => setShowModal(true)} style={{ 
-          background: 'linear-gradient(135deg, #04506B, #0369a1)', 
-          color: '#fff', 
-          border: 0, 
-          borderRadius: 12, 
-          padding: isMobile ? '12px 24px' : '12px 28px', 
-          fontWeight: 700, 
-          cursor: 'pointer', 
-          fontSize: isMobile ? 16 : 16, 
-          boxShadow: '0 4px 15px rgba(4, 80, 107, 0.4)', 
-          width: isMobile ? '100%' : undefined, 
-          marginTop: isMobile ? 8 : 0,
-          transition: 'all 0.3s ease',
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px'
+        
+        {/* Container para os filtros - em linha no mobile */}
+        <div style={{
+          display: 'flex',
+          gap: isMobile ? 8 : 15,
+          width: isMobile ? '100%' : 'auto',
+          flexWrap: isMobile ? 'wrap' : 'nowrap'
+        }}>
+          <select 
+            value={statusFiltro} 
+            onChange={e => setStatusFiltro(e.target.value as any)} 
+            style={{ 
+              padding: isMobile ? '10px 8px' : '8px 10px', 
+              borderRadius: 8, 
+              border: '1px solid #cbd5e1', 
+              fontSize: isMobile ? 14 : 14,
+              flex: isMobile ? '1' : 'none',
+              minWidth: isMobile ? 0 : 100,
+              background: '#fff'
+            }}
+          >
+            <option value="all">Status</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="sem sinal">Sem Sinal</option>
+          </select>
+          <select 
+            value={estadoFiltro} 
+            onChange={e => setEstadoFiltro(e.target.value)} 
+            style={{ 
+              padding: isMobile ? '10px 8px' : '8px 10px', 
+              borderRadius: 8, 
+              border: '1px solid #cbd5e1', 
+              fontSize: isMobile ? 14 : 14,
+              flex: isMobile ? '1' : 'none',
+              minWidth: isMobile ? 0 : 90,
+              background: '#fff'
+            }}
+          >
+            <option value="all">Estados</option>
+            {estadosCadastrados.map(estado => (
+              <option key={estado} value={estado}>{estado}</option>
+            ))}
+          </select>
+          <select 
+            value={cidadeFiltro} 
+            onChange={e => setCidadeFiltro(e.target.value)} 
+            style={{ 
+              padding: isMobile ? '10px 8px' : '8px 10px', 
+              borderRadius: 8, 
+              border: '1px solid #cbd5e1', 
+              fontSize: isMobile ? 14 : 14,
+              flex: isMobile ? '1' : 'none',
+              minWidth: isMobile ? 0 : 100,
+              background: '#fff'
+            }}
+          >
+            <option value="all">Cidades</option>
+            {cidadesCadastradas.map(cidade => (
+              <option key={cidade} value={cidade}>{cidade}</option>
+            ))}
+          </select>
+        </div>
+        
+        <button 
+          onClick={() => setShowModal(true)} 
+          style={{ 
+            background: 'linear-gradient(135deg, #04506B, #0369a1)', 
+            color: '#fff', 
+            border: 0, 
+            borderRadius: 8, 
+            padding: isMobile ? '12px 20px' : '10px 20px', 
+            fontWeight: 600, 
+            cursor: 'pointer', 
+            fontSize: isMobile ? 14 : 14, 
+            boxShadow: '0 2px 8px rgba(4, 80, 107, 0.3)', 
+            whiteSpace: 'nowrap',
+            transition: 'all 0.3s ease',
+            width: isMobile ? '100%' : 'auto'
         }}>🎥 Cadastrar Câmera</button>
       </div>
 
       {/* Botão para TI acessar gerenciamento de usuários */}
       {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
-      {loading ? (
-        <div style={{ 
-          textAlign: 'center', 
-          fontWeight: 700, 
-          fontSize: 24, 
-          marginTop: 60,
-          background: 'rgba(255,255,255,0.9)',
-          color: '#2c3e50',
-          padding: '30px',
-          borderRadius: 20,
-          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-          maxWidth: '400px',
-          margin: '60px auto'
-        }}>⏳ Carregando...</div>
-      ) : (
-        <div className="camera-list-container" style={{ 
-          maxWidth: '90%', 
-          margin: '0 auto',
-          paddingBottom: '40px'
-        }}>{cameraCards}</div>
-      )}
+      
+      {/* Área de conteúdo com scroll no mobile */}
+      <div style={{
+        flex: 1,
+        overflow: isMobile ? 'visible' : 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: isMobile ? 'auto' : 0 // Permite que o flex funcione corretamente
+      }}>
+        {loading ? (
+          <div style={{ 
+            textAlign: 'center', 
+            fontWeight: 700, 
+            fontSize: 24, 
+            marginTop: 60,
+            background: 'rgba(255,255,255,0.9)',
+            color: '#2c3e50',
+            padding: '30px',
+            borderRadius: 20,
+            boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+            maxWidth: '400px',
+            margin: '60px auto'
+          }}>⏳ Carregando...</div>
+        ) : (
+          <>
+            <div className="camera-list-container" style={{ 
+              width: '100%', 
+              maxWidth: '100%',
+              margin: '0',
+              padding: isMobile ? '10px 20px' : '15px 20px',
+              boxSizing: 'border-box',
+              flex: isMobile ? 'none' : 1,
+              overflow: isMobile ? 'visible' : 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: isMobile ? '8px' : '8px',
+              paddingBottom: isMobile ? '80px' : '0' // Espaço extra no mobile para não sobrepor elementos
+            }}>{cameraCards}</div>
+
+            {/* Componente de Paginação - Fixo na parte inferior */}
+            {totalPaginas > 1 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: isMobile ? '4px' : '8px',
+                margin: '0',
+                padding: isMobile ? '8px 20px' : '12px 20px',
+                width: '100%',
+                boxSizing: 'border-box',
+                background: 'rgba(255,255,255,0.95)',
+                borderTop: '1px solid rgba(0,0,0,0.1)',
+                flexShrink: 0 // Impede que seja comprimido
+              }}>
+                <button
+                  onClick={paginaAnterior}
+                  disabled={paginaAtual === 1}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: paginaAtual === 1 ? '#e5e7eb' : '#04506B',
+                    color: paginaAtual === 1 ? '#9ca3af' : '#fff',
+                    cursor: paginaAtual === 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <FaChevronLeft size={12} />
+                  {!isMobile && 'Anterior'}
+                </button>
+
+                <div style={{
+                  display: 'flex',
+                  gap: '5px',
+                  alignItems: 'center'
+                }}>
+                  {Array.from({ length: Math.min(totalPaginas, isMobile ? 3 : 5) }, (_, i) => {
+                    let pageNum;
+                    if (totalPaginas <= (isMobile ? 3 : 5)) {
+                      pageNum = i + 1;
+                    } else if (paginaAtual <= (isMobile ? 2 : 3)) {
+                      pageNum = i + 1;
+                    } else if (paginaAtual >= totalPaginas - (isMobile ? 1 : 2)) {
+                      pageNum = totalPaginas - (isMobile ? 2 : 4) + i;
+                    } else {
+                      pageNum = paginaAtual - (isMobile ? 1 : 2) + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => irParaPagina(pageNum)}
+                        style={{
+                          width: '35px',
+                          height: '35px',
+                          border: 'none',
+                          borderRadius: '8px',
+                          background: paginaAtual === pageNum ? '#04506B' : '#f3f4f6',
+                          color: paginaAtual === pageNum ? '#fff' : '#374151',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: paginaAtual === pageNum ? 600 : 500,
+                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => proximaPagina(totalPaginas)}
+                  disabled={paginaAtual === totalPaginas}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '8px 12px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: paginaAtual === totalPaginas ? '#e5e7eb' : '#04506B',
+                    color: paginaAtual === totalPaginas ? '#9ca3af' : '#fff',
+                    cursor: paginaAtual === totalPaginas ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {!isMobile && 'Próxima'}
+                  <FaChevronRight size={12} />
+                </button>
+              </div>
+            )}
+
+            {/* Informações da paginação - Compacta */}
+            <div style={{
+              textAlign: 'center',
+              color: '#6b7280',
+              fontSize: isMobile ? '12px' : '13px',
+              padding: isMobile ? '6px 20px 8px 20px' : '8px 20px 10px 20px',
+              background: '#f8fafc',
+              width: '100%',
+              boxSizing: 'border-box',
+              margin: '0',
+              flexShrink: 0, // Impede que seja comprimido
+              borderTop: '1px solid #e2e8f0'
+            }}>
+              Mostrando {Math.min((paginaAtual - 1) * itensPorPagina + 1, camerasFiltradas.length)} - {Math.min(paginaAtual * itensPorPagina, camerasFiltradas.length)} de {camerasFiltradas.length} câmeras
+              <br />
+              <span style={{ fontSize: '11px', opacity: 0.7 }}>
+                📱 {itensPorPagina} itens por página (auto-ajustado para sua tela)
+              </span>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

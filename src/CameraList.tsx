@@ -31,10 +31,16 @@ export default function CameraList() {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [statusFiltro, setStatusFiltro] = useState<'all' | 'online' | 'offline' | 'sem sinal'>('all');
+  const [estadoFiltro, setEstadoFiltro] = useState<string>('all');
+  const [cidadeFiltro, setCidadeFiltro] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
   const [form, setForm] = useState<Partial<Camera>>({ tipo_conexao: 'cloud', status: 'offline' });
   const [editId, setEditId] = useState<number | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
+
+  // Gerar listas únicas de estados e cidades cadastrados
+  const estadosUnicos = Array.from(new Set(cameras.map(cam => cam.estado).filter(Boolean)));
+  const cidadesUnicas = Array.from(new Set(cameras.filter(cam => (estadoFiltro === 'all' || cam.estado === estadoFiltro)).map(cam => cam.cidade).filter(Boolean)));
 
   async function fetchCameras() {
     setLoading(true);
@@ -82,42 +88,51 @@ export default function CameraList() {
   return (
   <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: 0, margin: 0 }}>
       {/* Header */}
-  <header style={{ width: '100%', background: '#04506B', color: '#fff', padding: 0, boxShadow: '0 2px 8px #0002', position: 'sticky', top: 0, zIndex: 2000 }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', padding: '12px 32px', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ width: 48, height: 48, background: '#fff', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              <img src="/images.png" alt="Logo" style={{ width: 36, height: 36, objectFit: 'contain' }} />
-            </div>
-            <span style={{ fontWeight: 700, fontSize: 24, letterSpacing: 1 }}>Câmeras Grupo Ginseng</span>
-          </div>
+  <header style={{ width: '100%', background: 'linear-gradient(90deg, #04506B 60%, #2563eb 100%)', color: '#fff', padding: 0, boxShadow: '0 2px 8px #0002', position: 'sticky', top: 0, zIndex: 2000 }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 32px 0 32px', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 8 }}>
+        <div style={{ width: 54, height: 54, background: '#fff', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 2px 8px #0002' }}>
+          <img src="/images.png" alt="Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} />
         </div>
-      </header>
-  <div style={{ maxWidth: 1100, margin: '0 auto', padding: 32, paddingTop: 56 }}>
+        <span style={{ fontWeight: 800, fontSize: 28, letterSpacing: 1, textShadow: '0 2px 8px #0002' }}>Câmeras Grupo Ginseng</span>
+      </div>
+    </div>
+  </header>
+      {/* Bloco de filtros fora do header */}
+      <div style={{ maxWidth: 900, margin: '24px auto 0 auto', background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px #0002', padding: '18px 32px', display: 'flex', alignItems: 'center', gap: 18, border: '1.5px solid #cbd5e1', minWidth: 320, width: '100%', justifyContent: 'center', position: 'relative' }}>
+        <input
+          type="text"
+          placeholder="Buscar por nome ou número da loja..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ padding: '10px 16px', borderRadius: 8, border: '1.5px solid #2563eb', background: '#f1f5f9', fontSize: 16, fontWeight: 500, color: '#2563eb', width: 210, boxShadow: '0 1px 4px #0001', maxWidth: '100%', textAlign: 'center' }}
+        />
+        <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as any)} style={{ padding: 8, borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 15, background: '#f8fafc', color: '#04506B', minWidth: 110 }}>
+          <option value="all">Todos status</option>
+          <option value="online">Online</option>
+          <option value="offline">Offline</option>
+          <option value="sem sinal">Sem sinal</option>
+        </select>
+        <select value={estadoFiltro} onChange={e => { setEstadoFiltro(e.target.value); setCidadeFiltro('all'); }} style={{ padding: 8, borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 15, background: '#f8fafc', color: '#04506B', minWidth: 120 }}>
+          <option value="all">Todos estados</option>
+          {estadosUnicos.map(estado => (
+            <option key={estado} value={estado}>{estado}</option>
+          ))}
+        </select>
+        <select value={cidadeFiltro} onChange={e => setCidadeFiltro(e.target.value)} style={{ padding: 8, borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 15, background: '#f8fafc', color: '#04506B', minWidth: 140 }}>
+          <option value="all">Todas cidades</option>
+          {cidadesUnicas.map(cidade => (
+            <option key={cidade} value={cidade}>{cidade}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: 32, paddingTop: 56 }}>
   {/* Título removido conforme solicitado */}
         {/* Busca por nome ou número da loja */}
-        <div style={{ marginBottom: 28, width: '100%' }}>
-          <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 12px #0001', padding: '18px 5vw', border: '1.5px solid #cbd5e1', minWidth: 260, width: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <input
-              type="text"
-              placeholder="Buscar por nome ou número da loja..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ padding: '12px 18px', borderRadius: 8, border: '1.5px solid #2563eb', background: '#f1f5f9', fontSize: 17, fontWeight: 500, color: '#2563eb', width: '100%', boxShadow: '0 1px 4px #0001', maxWidth: '100%', textAlign: 'center' }}
-            />
-          </div>
-        </div>
+  {/* Busca removida, agora está no header modernizado */}
 
-        {/* Filtros no header */}
-        <div style={{ position: 'absolute', top: 18, right: 32, display: 'flex', gap: 12, alignItems: 'center', zIndex: 2100 }}>
-          <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as any)} style={{ padding: 7, borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: 15 }}>
-            <option value="all">Todos status</option>
-            <option value="online">Online</option>
-            <option value="offline">Offline</option>
-            <option value="sem sinal">Sem sinal</option>
-          </select>
-          <input type="text" placeholder="Filtrar por Estado" value={form.estado || ''} onChange={e => setForm({ ...form, estado: e.target.value })} style={{ padding: 7, borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: 15, width: 90 }} />
-          <input type="text" placeholder="Filtrar por Cidade" value={form.cidade || ''} onChange={e => setForm({ ...form, cidade: e.target.value })} style={{ padding: 7, borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: 15, width: 110 }} />
-        </div>
+  {/* Filtros removidos, agora estão no header modernizado */}
 
         {/* Botão fixo de adicionar câmera */}
         <button
@@ -154,8 +169,8 @@ export default function CameraList() {
               .filter(cam => {
                 const termo = search.toLowerCase();
                 const statusOk = statusFiltro === 'all' || cam.status === statusFiltro;
-                const estadoOk = !form.estado || (cam.estado && cam.estado.toLowerCase().includes(form.estado.toLowerCase()));
-                const cidadeOk = !form.cidade || (cam.cidade && cam.cidade.toLowerCase().includes(form.cidade.toLowerCase()));
+                const estadoOk = estadoFiltro === 'all' || cam.estado === estadoFiltro;
+                const cidadeOk = cidadeFiltro === 'all' || cam.cidade === cidadeFiltro;
                 return (
                   statusOk && estadoOk && cidadeOk &&
                   (cam.loja_nome.toLowerCase().includes(termo) ||
@@ -233,6 +248,14 @@ export default function CameraList() {
                     )}
                     {cam.senha && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef' }}><FaKey color="#eab308" size={22} /> <b>Senha:</b> {cam.senha}</span>
+                    )}
+                    {(cam.cidade || cam.estado) && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef', color: '#334155', fontSize: 15, fontWeight: 500 }}>
+                        <FaGlobe color="#2563eb" size={22} />
+                        {cam.cidade && <span>{cam.cidade}</span>}
+                        {cam.cidade && cam.estado && <span style={{ fontWeight: 400 }}>|</span>}
+                        {cam.estado && <span>{cam.estado}</span>}
+                      </span>
                     )}
                   </div>
                 </div>

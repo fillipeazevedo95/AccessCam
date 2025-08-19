@@ -2,7 +2,7 @@
 export type User = {
   username: string;
   password: string;
-  role: 'ti' | 'prevencao';
+  role: 'ti' | 'prevencao' | 'adm';
   owner?: string;
 };
 

@@ -1,481 +1,393 @@
-import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react';
+import { supabase } from './supabaseClient.ts';
+import React, { useState, useEffect } from 'react';
 import UserManager from './UserManager.tsx';
 import { useAuth } from './auth.tsx';
-import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaUnlink, FaEdit, FaTrash } from 'react-icons/fa';
+import { useAllUsers } from './useAllUsers.ts';
+import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaCheckCircle, FaTimesCircle, FaExclamationCircle } from 'react-icons/fa';
 import { MdWifiOff } from 'react-icons/md';
-import { supabase } from './supabaseClient.ts';
 
 export type Camera = {
   id: number;
   loja_numero: string;
   loja_nome: string;
-  cloud: string;
-  camera_id: string;
-  ddns: string;
+  cloud?: string;
+  camera_id?: string;
+  ddns?: string;
   porta_servico?: string;
   porta_web?: string;
-  usuario: string;
-  senha: string;
-  tipo_conexao: 'cloud' | 'id' | 'ddns';
+  usuario?: string;
+  senha?: string;
+  tipo_conexao?: 'cloud' | 'id' | 'ddns';
   status: 'online' | 'offline' | 'sem sinal';
   logradouro?: string;
   cidade?: string;
   estado?: string;
-  owner?: string; // usuário responsável
+  owner?: string;
 };
 
-const statusColors = {
-  online: '#739577', // verde personalizado
-  offline: '#CC7277', // vermelho personalizado
-  'sem sinal': '#e5e7eb', // cinza claro
-};
+function getBorderColor(status: string) {
+  if (status === 'online') return '#22c55e';
+  if (status === 'offline') return '#e11d48';
+  if (status === 'sem sinal') return '#facc15';
+  return '#e5e7eb';
+}
 
 export default function CameraList() {
-  const [showMenu, setShowMenu] = useState(false);
-  const [showUserPages, setShowUserPages] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<string | null>(null);
-  // Importar lista de usuários
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { users } = require('./users.ts');
-  const { user, logout } = useAuth();
+  // Detecta se está em mobile
+  const [isMobile, setIsMobile] = useState(false);
+  const [headerMin, setHeaderMin] = useState(false);
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth <= 600);
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  const [showSenha, setShowSenha] = React.useState<{ [id: number]: boolean }>({});
+  useEffect(() => {
+    if (isMobile) setHeaderMin(true);
+    else setHeaderMin(false);
+  }, [isMobile]);
+  const { user } = useAuth();
+  // Mock de usuários para o menu suspenso
+  // Garante que não haja chaves duplicadas no dropdown
+  const allUsers = useAllUsers();
+  const [usuarioSelecionado, setUsuarioSelecionado] = useState(user?.username || '');
+  const isAdmin = user?.role === 'ti' || user?.role === 'adm' || user?.username === 'ti';
   const [cameras, setCameras] = useState<Camera[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  // Carregar câmeras mock ao montar
+  React.useEffect(() => {
+    async function fetchCameras() {
+      setLoading(true);
+      let query = supabase.from('cameras').select('*');
+      if (!isAdmin) {
+        // Usuário comum só vê suas próprias câmeras
+        query = query.eq('owner', user?.username);
+      } else {
+        // Admin sempre vê apenas as câmeras do usuário selecionado
+        query = query.eq('owner', usuarioSelecionado);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Erro ao buscar câmeras:', error.message);
+        setCameras([]);
+      } else {
+        setCameras(data || []);
+      }
+      setLoading(false);
+    }
+    fetchCameras();
+  }, [user, isAdmin, usuarioSelecionado]);
+  const [showUserManager, setShowUserManager] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [form, setForm] = useState<Partial<Camera>>({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username });
+  const [editId, setEditId] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
   const [statusFiltro, setStatusFiltro] = useState<'all' | 'online' | 'offline' | 'sem sinal'>('all');
   const [estadoFiltro, setEstadoFiltro] = useState<string>('all');
   const [cidadeFiltro, setCidadeFiltro] = useState<string>('all');
-  const [showUserManager, setShowUserManager] = useState(false);
-  const [search, setSearch] = useState<string>('');
-  const [form, setForm] = useState<Partial<Camera>>({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username });
-  const [editId, setEditId] = useState<number | null>(null);
-  const [showModal, setShowModal] = useState<boolean>(false);
 
-  // Fechar menus ao clicar fora
-  React.useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      const menu = document.getElementById('user-menu-dropdown');
-      if (menu && !menu.contains(e.target as Node)) {
-        setShowMenu(false);
-        setShowUserPages(false);
-      }
-    }
-    if (showMenu) {
-      document.addEventListener('mousedown', handleClick);
-    }
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showMenu]);
+  // Listas únicas de estados e cidades cadastrados
+  const estadosCadastrados = Array.from(new Set(cameras.map(c => c.estado).filter(Boolean)));
+  const cidadesCadastradas = Array.from(new Set(cameras.map(c => c.cidade).filter(Boolean)));
 
-  // Gerar listas únicas de estados e cidades cadastrados
-  const estadosUnicos = Array.from(new Set(cameras.map(cam => cam.estado).filter(Boolean)));
-  const cidadesUnicas = Array.from(new Set(cameras.filter(cam => (estadoFiltro === 'all' || cam.estado === estadoFiltro)).map(cam => cam.cidade).filter(Boolean)));
-
-  async function fetchCameras() {
+  function handleEdit(cam: Camera) {
+    setEditId(cam.id);
+    setForm({ ...cam });
+    setShowModal(true);
+  }
+  async function handleDelete(id: number) {
+    if (!window.confirm('Tem certeza que deseja excluir esta câmera?')) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('cameras')
-      .select('*');
-    if (!error && data) {
-      // TI e ADM veem todas, outros só as próprias
-      if (['ti', 'adm'].includes(String(user?.role))) {
-        setCameras(data);
-      } else {
-        setCameras(data.filter((cam: Camera) => cam.owner === user?.username));
-      }
+    const { error } = await supabase.from('cameras').delete().eq('id', id);
+    if (error) {
+      alert('Erro ao excluir câmera: ' + error.message);
+    } else {
+      // Atualiza lista
+      const { data } = await supabase.from('cameras').select('*');
+      setCameras(data || []);
     }
     setLoading(false);
   }
-
-  useEffect(() => {
-    fetchCameras();
-    // eslint-disable-next-line
-  }, [user]);
-
-  function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
   }
-
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const cameraPayload: any = {
-      ...form,
-      owner: user?.username,
-      responsavel_nome: user?.owner || user?.username
-    };
+    // Validação dos campos obrigatórios
+    if (!form.loja_nome || !form.loja_numero || !form.tipo_conexao || !form.status) {
+      alert('Preencha todos os campos obrigatórios: Nome da loja, Número da loja, Tipo de conexão e Status.');
+      return;
+    }
+    setLoading(true);
+    // Garante que owner sempre será o usuário logado
+    let cameraData;
     if (editId) {
-      await supabase.from('cameras').update(cameraPayload).eq('id', editId);
+      // Ao editar, mantém o owner original
+      cameraData = {
+        loja_nome: form.loja_nome,
+        loja_numero: form.loja_numero,
+        tipo_conexao: form.tipo_conexao,
+        status: form.status,
+        // Não altera owner!
+        ...(form.cidade ? { cidade: form.cidade } : {}),
+        ...(form.estado ? { estado: form.estado } : {}),
+        ...(form.usuario ? { usuario: form.usuario } : {}),
+        ...(form.senha ? { senha: form.senha } : {}),
+        ...(form.cloud ? { cloud: form.cloud } : {}),
+        ...(form.camera_id ? { camera_id: form.camera_id } : {}),
+        ...(form.ddns ? { ddns: form.ddns } : {}),
+        ...(form.porta_servico ? { porta_servico: form.porta_servico } : {}),
+        ...(form.porta_web ? { porta_web: form.porta_web } : {})
+      };
     } else {
-      await supabase.from('cameras').insert([cameraPayload]);
+      // No cadastro, define owner como usuário logado ou selecionado (admin)
+      cameraData = {
+        loja_nome: form.loja_nome,
+        loja_numero: form.loja_numero,
+        tipo_conexao: form.tipo_conexao,
+        status: form.status,
+        owner: isAdmin && usuarioSelecionado ? usuarioSelecionado : user?.username,
+        ...(form.cidade ? { cidade: form.cidade } : {}),
+        ...(form.estado ? { estado: form.estado } : {}),
+        ...(form.usuario ? { usuario: form.usuario } : {}),
+        ...(form.senha ? { senha: form.senha } : {}),
+        ...(form.cloud ? { cloud: form.cloud } : {}),
+        ...(form.camera_id ? { camera_id: form.camera_id } : {}),
+        ...(form.ddns ? { ddns: form.ddns } : {}),
+        ...(form.porta_servico ? { porta_servico: form.porta_servico } : {}),
+        ...(form.porta_web ? { porta_web: form.porta_web } : {})
+      };
     }
-    setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username });
-    setEditId(null);
+    if (editId) {
+      // Atualizar câmera existente
+      const { error } = await supabase.from('cameras').update(cameraData).eq('id', editId);
+      if (error) alert('Erro ao atualizar câmera: ' + error.message);
+    } else {
+      // Inserir nova câmera
+      const { error } = await supabase.from('cameras').insert([cameraData]);
+      if (error) alert('Erro ao cadastrar câmera: ' + error.message);
+    }
+    // Atualiza lista
+    const { data } = await supabase.from('cameras').select('*');
+    setCameras(data || []);
     setShowModal(false);
-    fetchCameras();
+    setEditId(null);
+    setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username });
+    setLoading(false);
   }
 
-  function handleEdit(cam: Camera) {
-    setForm(cam);
-    setEditId(cam.id);
-    setShowModal(true);
-  }
-
-  async function handleDelete(id: number) {
-    if (window.confirm('Deseja realmente excluir esta câmera?')) {
-      await supabase.from('cameras').delete().eq('id', id);
-      fetchCameras();
-    }
-  }
+   const cameraCards = cameras
+     .filter(cam => {
+       if (!isAdmin) {
+         // Usuário comum só vê suas próprias câmeras
+         return cam.owner === user?.username;
+       }
+       // Se admin selecionou um usuário específico, só mostra as câmeras desse usuário
+       if (usuarioSelecionado && usuarioSelecionado !== user?.username) {
+         return cam.owner === usuarioSelecionado;
+       }
+       // Admin sem filtro vê todas
+       return true;
+     })
+     .filter(cam => (statusFiltro === 'all' || cam.status === statusFiltro))
+     .filter(cam => (estadoFiltro === 'all' || cam.estado === estadoFiltro))
+     .filter(cam => (cidadeFiltro === 'all' || cam.cidade === cidadeFiltro))
+     .filter(cam => {
+       const termo = search.toLowerCase();
+       return (
+         cam.loja_nome?.toLowerCase().includes(termo) ||
+         cam.loja_numero?.toLowerCase().includes(termo) ||
+         cam.cidade?.toLowerCase().includes(termo) ||
+         cam.estado?.toLowerCase().includes(termo)
+       );
+     })
+     .sort((a, b) => {
+       const numA = parseInt(a.loja_numero, 10);
+       const numB = parseInt(b.loja_numero, 10);
+       if (isNaN(numA) && isNaN(numB)) return 0;
+       if (isNaN(numA)) return 1;
+       if (isNaN(numB)) return -1;
+       return numA - numB;
+     })
+    .map(cam => (
+  <div key={cam.id} className="camera-card" style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #0001', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, border: `2px solid ${getBorderColor(cam.status)}`, marginBottom: 8 }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8, flexWrap: isMobile ? 'wrap' : undefined }}>
+          <FaStore color="#2563eb" size={28} />
+          <span style={{ fontWeight: 700, fontSize: 20 }}>{cam.loja_nome} {cam.loja_numero && <span style={{ fontWeight: 400, fontSize: 16, color: '#2563eb' }}>#{cam.loja_numero}</span>}</span>
+          <span style={{ marginLeft: 'auto', fontWeight: 700, color: getBorderColor(cam.status), fontSize: 17, textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {cam.status === 'online' && <FaCheckCircle color="#22c55e" title="Online" />}
+            {cam.status === 'offline' && <FaTimesCircle color="#e11d48" title="Offline" />}
+            {cam.status === 'sem sinal' && <FaExclamationCircle color="#facc15" title="Sem sinal" />}
+            {cam.status === 'sem sinal' ? 'No Sinal' : cam.status}
+          </span>
+          <div style={{ display: 'flex', gap: isMobile ? 8 : 12, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row', marginLeft: 12 }}>
+            <button
+              onClick={() => handleEdit(cam)}
+              style={{
+                background: '#e0e7ef',
+                color: '#334155',
+                border: 0,
+                borderRadius: 8,
+                padding: isMobile ? '10px 0' : '6px 16px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: isMobile ? 17 : 15,
+                width: isMobile ? '100%' : 110,
+                minWidth: 90,
+                margin: 0
+              }}
+            >Editar</button>
+            <button
+              onClick={() => handleDelete(cam.id)}
+              style={{
+                background: '#e11d48',
+                color: '#fff',
+                border: 0,
+                borderRadius: 8,
+                padding: isMobile ? '10px 0' : '6px 16px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontSize: isMobile ? 17 : 15,
+                width: isMobile ? '100%' : 110,
+                minWidth: 90,
+                margin: 0
+              }}
+            >Excluir</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 15 }}>
+          {cam.cloud && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaCloud color="#0ea5e9" size={18} /> Cloud: {cam.cloud}</span>}
+          {cam.camera_id && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaIdBadge color="#6366f1" size={18} /> ID: {cam.camera_id}</span>}
+          {cam.ddns && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#16a34a" size={18} /> DDNS: {cam.ddns}</span>}
+          {cam.usuario && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaUser color="#f59e42" size={18} /> Usuário: {cam.usuario}</span>}
+          {cam.senha && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaKey color="#eab308" size={18} /> Senha: {cam.senha}</span>}
+          {cam.porta_servico && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaWifi color="#2563eb" size={18} /> Porta Serviço: {cam.porta_servico}</span>}
+          {cam.porta_web && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><MdWifiOff color="#2563eb" size={18} /> Porta Web: {cam.porta_web}</span>}
+          {(cam.cidade || cam.estado) && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#2563eb" size={18} /> {cam.cidade} {cam.estado && <span style={{ fontWeight: 400 }}>|</span>} {cam.estado}</span>}
+        </div>
+      </div>
+    ));
 
   return (
-  <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: 0, margin: 0 }}>
-    {/* Botão para TI acessar gerenciamento de usuários */}
-  {/* Botão de Gerenciar Usuários removido, agora está no menu suspenso do header */}
-    {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
-      {/* Header */}
-  <header style={{ width: '100%', background: 'linear-gradient(90deg, #04506B 60%, #2563eb 100%)', color: '#fff', padding: 0, boxShadow: '0 2px 8px #0002', position: 'sticky', top: 0, zIndex: 2000 }}>
-    <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px 0 32px', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 8 }}>
-        <div style={{ width: 54, height: 54, background: '#fff', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 2px 8px #0002' }}>
-          <img src="/images.png" alt="Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} />
-        </div>
-        <span style={{ fontWeight: 800, fontSize: 28, letterSpacing: 1, textShadow: '0 2px 8px #0002' }}>Câmeras Grupo Ginseng</span>
-      </div>
-      {user && (
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <button
-            onClick={() => setShowMenu(v => !v)}
-            style={{
-              background: '#fff',
-              color: '#04506B',
-              border: showMenu ? '2px solid #2563eb' : '1.5px solid #cbd5e1',
-              borderRadius: 14,
-              padding: '10px 22px',
-              fontWeight: 700,
-              fontSize: 17,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              boxShadow: showMenu ? '0 4px 16px #2563eb33' : '0 2px 8px #0001',
-              letterSpacing: 0.5,
-              minWidth: 170,
-              position: 'relative',
-              outline: 'none',
-              transition: 'all 0.18s',
-            }}
-            aria-haspopup="true"
-            aria-expanded={showMenu}
-            onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px #2563eb33')}
-            onMouseLeave={e => (e.currentTarget.style.boxShadow = showMenu ? '0 4px 16px #2563eb33' : '0 2px 8px #0001')}
-          >
-            <FaUser style={{ marginRight: 8, fontSize: 22, color: '#2563eb' }} />
-            <span style={{ fontWeight: 700 }}>{user.owner ? user.owner : user.username}</span>
-            <svg style={{ marginLeft: 10, transition: 'transform 0.2s', transform: showMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-          {showMenu && (
-            <div id="user-menu-dropdown" style={{ position: 'absolute', top: 48, right: 0, background: '#fff', color: '#222', borderRadius: 14, boxShadow: '0 4px 24px #2563eb22', minWidth: 240, zIndex: 9999, padding: 0, animation: 'fadeInMenu 0.18s', border: '1.5px solid #cbd5e1' }}>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                <li style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <button onClick={() => { setShowMenu(false); if (user.role === 'ti') setShowUserManager(true); }} disabled={user.role !== 'ti'} style={{ width: '100%', background: 'none', border: 0, textAlign: 'left', padding: '14px 18px', fontWeight: 600, fontSize: 15, color: user.role === 'ti' ? '#04506B' : '#aaa', cursor: user.role === 'ti' ? 'pointer' : 'not-allowed' }}>
-                    Gerenciar Usuários
-                  </button>
-                </li>
-                <li style={{ borderBottom: '1px solid #e5e7eb', position: 'relative' }}>
-                  <button
-                    onClick={() => (['ti', 'adm'].includes(String(user.role))) && setShowUserPages(v => !v)}
-                    disabled={!['ti', 'adm'].includes(String(user.role))}
-                    style={{ width: '100%', background: 'none', border: 0, textAlign: 'left', padding: '14px 18px', fontWeight: 600, fontSize: 15, color: (['ti', 'adm'].includes(String(user.role))) ? '#04506B' : '#aaa', cursor: (['ti', 'adm'].includes(String(user.role))) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-                  >
-                    Páginas dos Usuários
-                    <svg style={{ marginLeft: 8, transition: 'transform 0.2s', transform: showUserPages ? 'rotate(180deg)' : 'rotate(0deg)' }} width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
-                  {(showUserPages && (['ti', 'adm'].includes(String(user.role)))) && (
-                    <ul style={{
-                      position: 'static',
-                      background: '#fff',
-                      color: '#222',
-                      borderRadius: 12,
-                      boxShadow: '0 4px 24px #2563eb22',
-                      minWidth: 200,
-                      zIndex: 9999,
-                      padding: 0,
-                      margin: 0,
-                      listStyle: 'none',
-                      maxHeight: 260,
-                      overflowY: 'auto',
-                      border: '1.5px solid #cbd5e1',
-                      marginTop: 2,
-                    }}>
-                      {users.map(u => (
-                        <li key={u.username}>
-                          <button
-                            onClick={() => { setSelectedUser(u.username); setShowMenu(false); setShowUserPages(false); }}
-                            style={{
-                              width: '100%',
-                              background: selectedUser === u.username ? '#2563eb11' : 'none',
-                              border: 0,
-                              textAlign: 'left',
-                              padding: '12px 18px',
-                              fontWeight: 600,
-                              fontSize: 15,
-                              color: '#04506B',
-                              cursor: 'pointer',
-                              borderLeft: selectedUser === u.username ? '4px solid #2563eb' : '4px solid transparent',
-                              transition: 'background 0.15s, border 0.15s',
-                            }}
-                          >
-                            {u.owner ? `${u.owner} (${u.username})` : u.username}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-  {/* Exemplo de filtro por usuário selecionado (opcional):
-  {selectedUser && (
-    <div style={{ background: '#fffbe6', color: '#111', padding: 10, borderRadius: 8, margin: '12px auto', maxWidth: 400, textAlign: 'center', fontWeight: 600, fontSize: 16, border: '1.5px solid #fbbf24' }}>
-      Visualizando câmeras do usuário: {selectedUser}
-      <button onClick={() => setSelectedUser(null)} style={{ marginLeft: 16, background: '#e0e7ef', color: '#334155', border: 0, borderRadius: 6, padding: '4px 14px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>Limpar</button>
-    </div>
-  )}
-  */}
-                <li>
-                  <button onClick={logout} style={{ width: '100%', background: 'none', border: 0, textAlign: 'left', padding: '14px 18px', fontWeight: 600, fontSize: 15, color: '#ef4444', cursor: 'pointer' }}>
-                    Sair
-                  </button>
-                </li>
-              </ul>
+    <div className="main-container" style={{ minHeight: '100vh', background: '#f3f4f6', padding: 0, margin: 0 }}>
+      {/* Modal de cadastro/edição de câmera */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: '#0008', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <form onSubmit={handleSubmit} style={{ background: '#fff', borderRadius: 14, padding: 32, minWidth: 320, boxShadow: '0 4px 24px #0003', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{editId ? 'Editar Câmera' : 'Cadastrar Câmera'}</h2>
+            <input name="loja_nome" value={form.loja_nome || ''} onChange={handleChange} placeholder="Nome da loja" required style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <input name="loja_numero" value={form.loja_numero || ''} onChange={handleChange} placeholder="Número da loja" required style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <input name="cidade" value={form.cidade || ''} onChange={handleChange} placeholder="Cidade" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <input name="estado" value={form.estado || ''} onChange={handleChange} placeholder="Estado" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <select name="status" value={form.status || 'offline'} onChange={handleChange} style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+              <option value="sem sinal">No Sinal</option>
+            </select>
+            <select name="tipo_conexao" value={form.tipo_conexao || 'cloud'} onChange={handleChange} style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
+              <option value="cloud">Cloud</option>
+              <option value="id">ID</option>
+              <option value="ddns">DDNS</option>
+            </select>
+            {form.tipo_conexao === 'cloud' && (
+              <input name="cloud" value={form.cloud || ''} onChange={handleChange} placeholder="Cloud" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            )}
+            {form.tipo_conexao === 'id' && (
+              <input name="camera_id" value={form.camera_id || ''} onChange={handleChange} placeholder="ID da Câmera" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            )}
+            {form.tipo_conexao === 'ddns' && (
+              <input name="ddns" value={form.ddns || ''} onChange={handleChange} placeholder="DDNS" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            )}
+            <input name="porta_servico" value={form.porta_servico || ''} onChange={handleChange} placeholder="Porta Serviço" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <input name="porta_web" value={form.porta_web || ''} onChange={handleChange} placeholder="Porta Web" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <input name="usuario" value={form.usuario || ''} onChange={handleChange} placeholder="Usuário" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <input name="senha" value={form.senha || ''} onChange={handleChange} placeholder="Senha" type="password" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
+            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+              <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 8, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 16 }}>Salvar</button>
+              <button type="button" onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username }); }} style={{ background: '#e11d48', color: '#fff', border: 0, borderRadius: 8, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 16 }}>Cancelar</button>
             </div>
-          )}
+          </form>
         </div>
       )}
-    </div>
-  </header>
-      {/* Bloco de filtros fora do header */}
-      <div style={{ maxWidth: 900, margin: '24px auto 0 auto', background: '#fff', borderRadius: 16, boxShadow: '0 2px 12px #0002', padding: '18px 32px', display: 'flex', alignItems: 'center', gap: 18, border: '1.5px solid #cbd5e1', minWidth: 320, width: '100%', justifyContent: 'center', position: 'relative' }}>
+      {/* Header */}
+      <header className={headerMin ? 'header-min' : ''} style={{ background: '#2563eb', color: '#fff', padding: headerMin ? '8px 0' : '18px 0 12px 0', marginBottom: 24, boxShadow: '0 2px 8px #0002', transition: 'padding 0.2s' }}>
+        <div style={{ maxWidth: '90%', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <img src="/logo.png" alt="Logo" style={{ height: headerMin ? 28 : 38, marginRight: 10, transition: 'height 0.2s' }} />
+            <span style={{ fontWeight: 700, fontSize: headerMin ? 17 : 22, letterSpacing: 1, transition: 'font-size 0.2s' }}>AccessCam</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 18, flexWrap: isMobile ? 'wrap' : undefined }}>
+            <span style={{ fontWeight: 500, fontSize: headerMin ? 13 : 16 }}>Usuário: {user?.username || '---'}</span>
+            {/* Menu suspenso de outros usuários, só para admin */}
+            {isAdmin && (
+              <>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={usuarioSelecionado}
+                    onChange={e => setUsuarioSelecionado(e.target.value)}
+                    style={{ padding: '6px 18px', borderRadius: 8, border: 0, fontWeight: 700, color: '#2563eb', background: '#fff', fontSize: 15, boxShadow: '0 1px 4px #0001', cursor: 'pointer' }}
+                    title="Visualizar câmeras de outro usuário"
+                  >
+                     {allUsers.map(u => (
+                       <option key={u.username} value={u.username}>{u.username}</option>
+                     ))}
+                  </select>
+                </div>
+                <button onClick={() => setShowUserManager(true)} style={{ background: '#fff', color: '#2563eb', border: 0, borderRadius: 8, padding: isMobile ? '10px 0' : '6px 18px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? 17 : 15, boxShadow: '0 1px 4px #0001', width: isMobile ? '100%' : undefined, marginTop: isMobile ? 8 : 0 }}>Gerenciar Usuários</button>
+              </>
+            )}
+            <button onClick={() => {
+              // Remove apenas dados de sessão, mantendo o lastUser
+              Object.keys(localStorage).forEach(key => {
+                if (key !== 'lastUser') localStorage.removeItem(key);
+              });
+              window.location.reload();
+            }} style={{ background: '#e11d48', color: '#fff', border: 0, borderRadius: 8, padding: isMobile ? '10px 0' : '6px 18px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? 17 : 15, boxShadow: '0 1px 4px #0001', width: isMobile ? '100%' : undefined, marginTop: isMobile ? 8 : 0 }}>Sair</button>
+          </div>
+        </div>
+      </header>
+
+      {/* Busca e filtros */}
+      <div className="filters-bar" style={{ maxWidth: '90%', margin: '0 auto', marginBottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
         <input
           type="text"
-          placeholder="Buscar por nome ou número da loja..."
+          placeholder="Buscar loja, número, cidade ou estado..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ padding: '10px 16px', borderRadius: 8, border: '1.5px solid #2563eb', background: '#f1f5f9', fontSize: 16, fontWeight: 500, color: '#2563eb', width: 210, boxShadow: '0 1px 4px #0001', maxWidth: '100%', textAlign: 'center' }}
+          style={{ flex: 1, minWidth: 180, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}
         />
-        <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as any)} style={{ padding: 8, borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 15, background: '#f8fafc', color: '#04506B', minWidth: 110 }}>
+        <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as any)} style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
           <option value="all">Todos status</option>
           <option value="online">Online</option>
           <option value="offline">Offline</option>
-          <option value="sem sinal">Sem sinal</option>
+          <option value="sem sinal">No Sinal</option>
         </select>
-        <select value={estadoFiltro} onChange={e => { setEstadoFiltro(e.target.value); setCidadeFiltro('all'); }} style={{ padding: 8, borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 15, background: '#f8fafc', color: '#04506B', minWidth: 120 }}>
-          <option value="all">Todos estados</option>
-          {estadosUnicos.map(estado => (
+        <select value={estadoFiltro} onChange={e => setEstadoFiltro(e.target.value)} style={{ width: 90, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
+          <option value="all">Todos os Estados</option>
+          {estadosCadastrados.map(estado => (
             <option key={estado} value={estado}>{estado}</option>
           ))}
         </select>
-        <select value={cidadeFiltro} onChange={e => setCidadeFiltro(e.target.value)} style={{ padding: 8, borderRadius: 8, border: '1.5px solid #cbd5e1', fontSize: 15, background: '#f8fafc', color: '#04506B', minWidth: 140 }}>
-          <option value="all">Todas cidades</option>
-          {cidadesUnicas.map(cidade => (
+        <select value={cidadeFiltro} onChange={e => setCidadeFiltro(e.target.value)} style={{ width: 120, padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }}>
+          <option value="all">Todas as Cidades</option>
+          {cidadesCadastradas.map(cidade => (
             <option key={cidade} value={cidade}>{cidade}</option>
           ))}
         </select>
+        <button onClick={() => setShowModal(true)} style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 8, padding: isMobile ? '10px 0' : '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: isMobile ? 17 : 16, boxShadow: '0 1px 4px #0001', width: isMobile ? '100%' : undefined, marginTop: isMobile ? 8 : 0 }}>Cadastrar Câmera</button>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: 32, paddingTop: 56 }}>
-  {/* Título removido conforme solicitado */}
-        {/* Busca por nome ou número da loja */}
-  {/* Busca removida, agora está no header modernizado */}
-
-  {/* Filtros removidos, agora estão no header modernizado */}
-
-        {/* Botão fixo de adicionar câmera */}
-        <button
-          onClick={() => { setShowModal(true); setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username }); setEditId(null); }}
-          style={{
-            position: 'fixed',
-            bottom: 32,
-            right: 32,
-            background: '#2563eb',
-            color: '#fff',
-            border: 0,
-            borderRadius: '50%',
-            width: 64,
-            height: 64,
-            fontWeight: 700,
-            fontSize: 34,
-            cursor: 'pointer',
-            boxShadow: '0 4px 16px #0002',
-            zIndex: 3000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'background 0.2s',
-          }}
-          title="Adicionar nova câmera"
-        >
-          +
-        </button>
-        {loading ? (
-          <p style={{ textAlign: 'center', color: '#64748b', fontSize: 18 }}>Carregando...</p>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'center', width: '100%' }}>
-            {cameras
-              .filter(cam => {
-                const termo = search.toLowerCase();
-                const statusOk = statusFiltro === 'all' || cam.status === statusFiltro;
-                const estadoOk = estadoFiltro === 'all' || cam.estado === estadoFiltro;
-                const cidadeOk = cidadeFiltro === 'all' || cam.cidade === cidadeFiltro;
-                return (
-                  statusOk && estadoOk && cidadeOk &&
-                  (cam.loja_nome.toLowerCase().includes(termo) ||
-                  (cam.loja_numero && cam.loja_numero.toLowerCase().includes(termo)))
-                );
-              })
-              .sort((a, b) => {
-                const numA = parseInt(a.loja_numero, 10);
-                const numB = parseInt(b.loja_numero, 10);
-                if (isNaN(numA) && isNaN(numB)) return 0;
-                if (isNaN(numA)) return 1;
-                if (isNaN(numB)) return -1;
-                return numA - numB;
-              })
-              .map(cam => (
-                <div key={cam.id} style={{ background: statusColors[cam.status], borderRadius: 16, padding: 18, minWidth: 260, maxWidth: 280, minHeight: 320, flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', transition: 'background 0.3s', border: '1px solid #111' }}>
-                  <div style={{ position: 'absolute', top: 18, right: 18, display: 'flex', gap: 10 }}>
-                    <span
-                      onClick={() => handleEdit(cam)}
-                      title="Editar"
-                      style={{ background: '#fbbf24', color: '#fff', border: '2px solid #eab308', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 15, boxShadow: '0 1px 4px #0002', transition: 'background 0.2s', padding: 0 }}
-                    >
-                      <FaEdit size={15} />
-                    </span>
-                    <span
-                      onClick={() => handleDelete(cam.id)}
-                      title="Excluir"
-                      style={{ background: '#ef4444', color: '#fff', border: '2px solid #b91c1c', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 15, boxShadow: '0 1px 4px #0002', transition: 'background 0.2s', padding: 0 }}
-                    >
-                      <FaTrash size={15} />
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', marginBottom: 8 }}>
-                    <span style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 38,
-                      height: 38,
-                      borderRadius: '50%',
-                      background: cam.status === 'online' ? '#e0f7e9' : cam.status === 'offline' ? '#fde2e2' : '#fdf6e3',
-                      border: '2px solid #e0e7ef',
-                      boxShadow: '0 1px 4px #0001',
-                      gap: 6,
-                      marginRight: 10,
-                    }}>
-                      {cam.status === 'online' && <FaWifi color="#22c55e" size={22} title="Online" />}
-                      {cam.status === 'offline' && <FaUnlink color="#ef4444" size={22} title="Offline" />}
-                      {cam.status === 'sem sinal' && <MdWifiOff color="#eab308" size={24} title="Sem sinal" />}
-                    </span>
-                    <span style={{ fontWeight: 700, color: '#111', fontSize: 17, textTransform: 'capitalize' }}>{cam.status}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 2 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef', color: '#334155', fontSize: 15, fontWeight: 500 }}>
-                      <FaStore color="#2563eb" size={22} /> {cam.loja_nome}
-                    </span>
-                    {cam.loja_numero && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef', color: '#334155', fontSize: 15, fontWeight: 500 }}>
-                        <FaIdBadge color="#2563eb" size={22} /> Loja #{cam.loja_numero}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 15 }}>
-                    {cam.cloud && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef' }}><FaCloud color="#0ea5e9" size={22} /> <b>Cloud:</b> {cam.cloud}</span>
-                    )}
-                    {cam.camera_id && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef' }}><FaIdBadge color="#6366f1" size={22} /> <b>ID:</b> {cam.camera_id}</span>
-                    )}
-                    {cam.ddns && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef' }}><FaGlobe color="#16a34a" size={22} /> <b>DDNS:</b> {cam.ddns}</span>
-                    )}
-                    {cam.usuario && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef' }}><FaUser color="#f59e42" size={22} /> <b>Usuário:</b> {cam.usuario}</span>
-                    )}
-                    {cam.senha && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef' }}><FaKey color="#eab308" size={22} /> <b>Senha:</b> {cam.senha}</span>
-                    )}
-                    {(cam.cidade || cam.estado) && (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', borderRadius: 8, boxShadow: '0 1px 4px #0001', padding: '6px 10px', border: '1px solid #e0e7ef', color: '#334155', fontSize: 15, fontWeight: 500 }}>
-                        <FaGlobe color="#2563eb" size={22} />
-                        {cam.cidade && <span>{cam.cidade}</span>}
-                        {cam.cidade && cam.estado && <span style={{ fontWeight: 400 }}>|</span>}
-                        {cam.estado && <span>{cam.estado}</span>}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-          </div>
-        )}
-      </div>
-
-      {/* Modal de cadastro/edição de câmera */}
-      {showModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.25)',
-          zIndex: 4000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 16px #0003', padding: 32, minWidth: 320, maxWidth: 400, width: '90%', position: 'relative' }}>
-            <button
-              onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline' }); }}
-              style={{ position: 'absolute', top: 12, right: 12, background: '#e0e7ef', color: '#334155', border: 0, borderRadius: '50%', width: 32, height: 32, fontWeight: 700, fontSize: 18, cursor: 'pointer' }}
-              title="Fechar"
-            >
-              ×
-            </button>
-            <h3 style={{ color: '#04506B', fontWeight: 700, fontSize: 20, marginBottom: 18 }}>{editId ? 'Editar Câmera' : 'Cadastrar Câmera'}</h3>
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input name="loja_nome" placeholder="Nome da Loja" value={form.loja_nome || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              {/* Campo oculto de owner */}
-              <input name="owner" value={form.owner || ''} type="hidden" readOnly />
-              <input name="loja_numero" placeholder="Número da Loja" value={form.loja_numero || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <input name="logradouro" placeholder="Logradouro" value={form.logradouro || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <input name="cidade" placeholder="Cidade" value={form.cidade || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <input name="estado" placeholder="Estado" value={form.estado || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <select name="tipo_conexao" value={form.tipo_conexao || 'cloud'} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}>
-                <option value="cloud">Cloud</option>
-                <option value="id">ID</option>
-                <option value="ddns">DDNS</option>
-              </select>
-              {form.tipo_conexao === 'cloud' && (
-                <input name="cloud" placeholder="Cloud" value={form.cloud || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              )}
-              {form.tipo_conexao === 'id' && (
-                <input name="camera_id" placeholder="ID" value={form.camera_id || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              )}
-              {form.tipo_conexao === 'ddns' && (
-                <input name="ddns" placeholder="DDNS" value={form.ddns || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              )}
-              <input name="porta_servico" placeholder="Porta de Serviço" value={form.porta_servico || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <input name="porta_web" placeholder="Porta Web" value={form.porta_web || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <input name="usuario" placeholder="Usuário" value={form.usuario || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <input name="senha" placeholder="Senha" value={form.senha || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
-              <select name="status" value={form.status || 'offline'} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}>
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
-                <option value="sem sinal">Sem sinal</option>
-              </select>
-              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 6, padding: '8px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}>{editId ? 'Salvar' : 'Cadastrar'}</button>
-                <button type="button" onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline' }); }} style={{ background: '#e0e7ef', color: '#334155', border: 0, borderRadius: 6, padding: '8px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}>Cancelar</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Botão para TI acessar gerenciamento de usuários */}
+      {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
+      {loading ? (
+        <div style={{ textAlign: 'center', color: '#2563eb', fontWeight: 700, fontSize: 22, marginTop: 40 }}>Carregando...</div>
+      ) : (
+  <div className="camera-list-container" style={{ maxWidth: '90%', margin: '0 auto' }}>{cameraCards}</div>
       )}
     </div>
   );

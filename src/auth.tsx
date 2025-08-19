@@ -1,21 +1,28 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { users, User } from './users.ts';
+import { User } from './users.ts';
+import { supabase } from './supabaseClient.ts';
 
 type AuthContextType = {
   user: User | null;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
 };
 
-const AuthContext = createContext<AuthContextType>({ user: null, login: () => false, logout: () => {} });
+const AuthContext = createContext<AuthContextType>({ user: null, login: async () => false, logout: () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  function login(username: string, password: string) {
-    const found = users.find(u => u.username === username && u.password === password);
-    if (found) {
-      setUser(found);
+  async function login(username: string, password: string) {
+    // Busca usuário no Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .eq('password', password)
+      .single();
+    if (data && !error) {
+      setUser(data);
       return true;
     }
     return false;

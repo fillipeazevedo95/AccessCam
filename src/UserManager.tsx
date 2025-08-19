@@ -1,24 +1,34 @@
-import React, { useState } from 'react';
-import { users as initialUsers, User } from './users.ts';
+import React, { useState, useEffect } from 'react';
+import { User } from './users.ts';
 import { useAuth } from './auth.tsx';
+import { supabase } from './supabaseClient.ts';
 
 export default function UserManager({ onClose }: { onClose?: () => void }) {
   const { user } = useAuth();
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [form, setForm] = useState<Partial<User>>({ role: 'prevencao' });
   const [error, setError] = useState('');
   const [editUser, setEditUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<Partial<User>>({});
 
-  if (!user || user.role !== 'ti') return null;
+  // Carrega usuários do Supabase ao abrir
+  useEffect(() => {
+    async function fetchUsers() {
+      const { data, error } = await supabase.from('users').select('*');
+      if (!error && data) setUsers(data);
+    }
+    fetchUsers();
+  }, []);
+
+  if (!user || (user.role !== 'ti' && user.role !== 'adm')) return null;
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleAddUser(e: React.FormEvent) {
+  async function handleAddUser(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.username || !form.password || !form.role || !form.owner) {
+    if (!form.username || !form.password || !form.owner) {
       setError('Preencha todos os campos');
       return;
     }
@@ -26,16 +36,43 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
       setError('Usuário já existe');
       return;
     }
-    setUsers([...users, form as User]);
+    // Define role: se checkbox de admin marcado, role = 'adm', se username for 'ti', role = 'ti', senão 'prevencao'
+    let role: 'adm' | 'ti' | 'prevencao' = 'prevencao';
+    if (form.username === 'ti') {
+      role = 'ti';
+    } else if (form.role === 'adm' || form.role === 'ti') {
+      role = 'adm';
+    }
+    const { error } = await supabase.from('users').insert([
+      {
+        username: form.username,
+        password: form.password,
+        owner: form.owner,
+        role,
+        pode_criar_usuarios: role === 'adm',
+        ativo: true
+      }
+    ]);
+    if (error) {
+      setError('Erro ao salvar usuário: ' + error.message);
+      return;
+    }
+    // Atualiza lista
+    const { data } = await supabase.from('users').select('*');
+    setUsers(data || []);
     setForm({ role: 'prevencao' });
     setError('');
   }
 
-  function handleDelete(username: string) {
+  async function handleDelete(username: string) {
     if (window.confirm('Deseja remover este usuário?')) {
-      setUsers(users.filter(u => u.username !== username));
+      await supabase.from('users').delete().eq('username', username);
+      const { data } = await supabase.from('users').select('*');
+      setUsers(data || []);
     }
   }
+
+
 
   function handleEdit(u: User) {
     setEditUser(u);
@@ -46,13 +83,23 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
     setEditForm({ ...editForm, [e.target.name]: e.target.value });
   }
 
-  function handleEditSave(e: React.FormEvent) {
+  async function handleEditSave(e: React.FormEvent) {
     e.preventDefault();
     if (!editForm.username || !editForm.password || !editForm.role) {
       setError('Preencha todos os campos');
       return;
     }
-    setUsers(users.map(u => u.username === editUser?.username ? (editForm as User) : u));
+    // Atualiza no Supabase
+    await supabase.from('users').update({
+      username: editForm.username,
+      password: editForm.password,
+      role: editForm.role,
+      owner: editForm.owner,
+      pode_criar_usuarios: editForm.role === 'ti',
+      ativo: true
+    }).eq('username', editUser?.username);
+    const { data } = await supabase.from('users').select('*');
+    setUsers(data || []);
     setEditUser(null);
     setEditForm({});
     setError('');
@@ -83,8 +130,8 @@ export default function UserManager({ onClose }: { onClose?: () => void }) {
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 500 }}>
             <input
               type="checkbox"
-              checked={form.role === 'ti'}
-              onChange={e => setForm(f => ({ ...f, role: e.target.checked ? 'ti' : 'prevencao' }))}
+              checked={form.role === 'adm'}
+              onChange={e => setForm(f => ({ ...f, role: e.target.checked ? 'adm' : 'prevencao' }))}
               style={{ width: 18, height: 18 }}
             />
             Permitir criar outros usuários (direitos de ADM)

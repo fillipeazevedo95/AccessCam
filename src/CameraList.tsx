@@ -216,14 +216,27 @@ export default function CameraList() {
        return numA - numB;
      })
     .map(cam => (
-  <div key={cam.id} className="camera-card" style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #0001', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, border: `2px solid ${getBorderColor(cam.status)}`, marginBottom: 8 }}>
+  <div key={cam.id} className="camera-card" style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #0001', padding: 24, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid #000', marginBottom: 8 }}>
   <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8, flexWrap: isMobile ? 'wrap' : undefined }}>
           <FaStore color="#2563eb" size={28} />
           <span style={{ fontWeight: 700, fontSize: 20 }}>{cam.loja_nome} {cam.loja_numero && <span style={{ fontWeight: 400, fontSize: 16, color: '#2563eb' }}>#{cam.loja_numero}</span>}</span>
-          <span style={{ marginLeft: 'auto', fontWeight: 700, color: getBorderColor(cam.status), fontSize: 17, textTransform: 'capitalize', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {cam.status === 'online' && <FaCheckCircle color="#22c55e" title="Online" />}
-            {cam.status === 'offline' && <FaTimesCircle color="#e11d48" title="Offline" />}
-            {cam.status === 'sem sinal' && <FaExclamationCircle color="#facc15" title="Sem sinal" />}
+          <span style={{ 
+            marginLeft: 'auto', 
+            fontWeight: 600, 
+            fontSize: 14, 
+            textTransform: 'capitalize', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 6,
+            background: cam.status === 'online' ? '#dcfce7' : cam.status === 'offline' ? '#fee2e2' : '#fef3c7',
+            color: cam.status === 'online' ? '#166534' : cam.status === 'offline' ? '#991b1b' : '#92400e',
+            padding: '6px 12px',
+            borderRadius: 20,
+            border: `1px solid ${cam.status === 'online' ? '#bbf7d0' : cam.status === 'offline' ? '#fecaca' : '#fed7aa'}`
+          }}>
+            {cam.status === 'online' && <FaWifi size={12} />}
+            {cam.status === 'offline' && <MdWifiOff size={12} />}
+            {cam.status === 'sem sinal' && <FaExclamationCircle size={12} />}
             {cam.status === 'sem sinal' ? 'No Sinal' : cam.status}
           </span>
           <div style={{ display: 'flex', gap: isMobile ? 8 : 12, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row', marginLeft: 12 }}>
@@ -534,7 +547,7 @@ export default function CameraList() {
           ))}
         </select>
         <button onClick={() => setShowModal(true)} style={{ 
-          background: 'linear-gradient(135deg, #10ac84, #06d6a0)', 
+          background: 'linear-gradient(135deg, #04506B, #0369a1)', 
           color: '#fff', 
           border: 0, 
           borderRadius: 12, 
@@ -542,7 +555,7 @@ export default function CameraList() {
           fontWeight: 700, 
           cursor: 'pointer', 
           fontSize: isMobile ? 16 : 16, 
-          boxShadow: '0 4px 15px rgba(16, 172, 132, 0.4)', 
+          boxShadow: '0 4px 15px rgba(4, 80, 107, 0.4)', 
           width: isMobile ? '100%' : undefined, 
           marginTop: isMobile ? 8 : 0,
           transition: 'all 0.3s ease',

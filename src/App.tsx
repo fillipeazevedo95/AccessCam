@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React from 'react';
 import CameraList from './CameraList.tsx';
+import Login from './Login.tsx';
+import { AuthProvider, useAuth } from './auth.tsx';
 
-function App() {
-  const [user, setUser] = useState<string | null>(null);
-
-  return <CameraList />;
+function MainApp() {
+  const { user } = useAuth();
+  return user ? <CameraList /> : <Login />;
 }
 
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
+  );
+}

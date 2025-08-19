@@ -1,0 +1,63 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from './auth.tsx';
+
+export default function Login() {
+  const { login } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [remember, setRemember] = useState(true);
+
+  // Carregar último usuário salvo
+  useEffect(() => {
+    const lastUser = localStorage.getItem('lastUser');
+    if (lastUser) setUsername(lastUser);
+  }, []);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (remember) localStorage.setItem('lastUser', username);
+    else localStorage.removeItem('lastUser');
+    if (!login(username, password)) {
+      setError('Usuário ou senha inválidos');
+    }
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(120deg, #2563eb 0%, #04506B 100%)' }}>
+      <form onSubmit={handleSubmit} style={{ background: '#fff', padding: 36, borderRadius: 16, boxShadow: '0 4px 32px #04506b22', minWidth: 340, display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center', position: 'relative' }}>
+        <img src="/logo.png" alt="Logo Câmeras" style={{ width: 72, height: 72, objectFit: 'contain', marginBottom: 10, filter: 'drop-shadow(0 2px 8px #2563eb33)' }} />
+        <h2 style={{ 
+          color: '#04506B', 
+          fontWeight: 900, 
+          fontSize: 32, 
+          marginBottom: 0, 
+          letterSpacing: 1.5, 
+          textShadow: '0 2px 12px #2563eb55, 0 1px 0 #fff',
+          filter: 'drop-shadow(0 2px 8px #2563eb33)'
+        }}>AccessCam</h2>
+        <div style={{
+          fontSize: 19,
+          color: '#2563eb',
+          fontWeight: 900,
+          marginBottom: 12,
+          marginTop: 2,
+          letterSpacing: 1.5,
+          textShadow: '0 1px 8px #2563eb22, 0 1px 0 #fff',
+          filter: 'drop-shadow(0 2px 8px #2563eb33)',
+          fontFamily: 'inherit',
+        }}>
+          Grupo Ginseng
+        </div>
+        <input placeholder="Usuário" value={username} onChange={e => setUsername(e.target.value)} style={{ padding: 12, borderRadius: 7, border: '1.5px solid #cbd5e1', width: '100%', fontSize: 16 }} autoFocus />
+        <input placeholder="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} style={{ padding: 12, borderRadius: 7, border: '1.5px solid #cbd5e1', width: '100%', fontSize: 16 }} />
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%', margin: '2px 0 0 0' }}>
+          <input id="remember" type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ marginRight: 8, accentColor: '#2563eb' }} />
+          <label htmlFor="remember" style={{ fontSize: 15, color: '#04506B', userSelect: 'none', cursor: 'pointer' }}>Lembrar usuário</label>
+        </div>
+        {error && <span style={{ color: 'red', fontSize: 14, alignSelf: 'flex-start' }}>{error}</span>}
+        <button type="submit" style={{ background: 'linear-gradient(90deg, #2563eb 60%, #04506B 100%)', color: '#fff', border: 0, borderRadius: 7, padding: '12px 0', fontWeight: 700, fontSize: 17, cursor: 'pointer', width: '100%', marginTop: 8, boxShadow: '0 2px 8px #2563eb22', letterSpacing: 0.5 }}>Entrar</button>
+      </form>
+    </div>
+  );
+}

@@ -1,4 +1,6 @@
 import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react';
+import UserManager from './UserManager.tsx';
+import { useAuth } from './auth.tsx';
 import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaUnlink, FaEdit, FaTrash } from 'react-icons/fa';
 import { MdWifiOff } from 'react-icons/md';
 import { supabase } from './supabaseClient.ts';
@@ -19,6 +21,7 @@ export type Camera = {
   logradouro?: string;
   cidade?: string;
   estado?: string;
+  owner?: string; // usuário responsável
 };
 
 const statusColors = {
@@ -28,15 +31,38 @@ const statusColors = {
 };
 
 export default function CameraList() {
+  const [showMenu, setShowMenu] = useState(false);
+  const [showUserPages, setShowUserPages] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  // Importar lista de usuários
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { users } = require('./users.ts');
+  const { user, logout } = useAuth();
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [statusFiltro, setStatusFiltro] = useState<'all' | 'online' | 'offline' | 'sem sinal'>('all');
   const [estadoFiltro, setEstadoFiltro] = useState<string>('all');
   const [cidadeFiltro, setCidadeFiltro] = useState<string>('all');
+  const [showUserManager, setShowUserManager] = useState(false);
   const [search, setSearch] = useState<string>('');
-  const [form, setForm] = useState<Partial<Camera>>({ tipo_conexao: 'cloud', status: 'offline' });
+  const [form, setForm] = useState<Partial<Camera>>({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username });
   const [editId, setEditId] = useState<number | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
+
+  // Fechar menus ao clicar fora
+  React.useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      const menu = document.getElementById('user-menu-dropdown');
+      if (menu && !menu.contains(e.target as Node)) {
+        setShowMenu(false);
+        setShowUserPages(false);
+      }
+    }
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClick);
+    }
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showMenu]);
 
   // Gerar listas únicas de estados e cidades cadastrados
   const estadosUnicos = Array.from(new Set(cameras.map(cam => cam.estado).filter(Boolean)));
@@ -47,13 +73,21 @@ export default function CameraList() {
     const { data, error } = await supabase
       .from('cameras')
       .select('*');
-    if (!error && data) setCameras(data);
+    if (!error && data) {
+      // TI e ADM veem todas, outros só as próprias
+      if (['ti', 'adm'].includes(String(user?.role))) {
+        setCameras(data);
+      } else {
+        setCameras(data.filter((cam: Camera) => cam.owner === user?.username));
+      }
+    }
     setLoading(false);
   }
 
   useEffect(() => {
     fetchCameras();
-  }, []);
+    // eslint-disable-next-line
+  }, [user]);
 
   function handleChange(e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -61,12 +95,17 @@ export default function CameraList() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const cameraPayload: any = {
+      ...form,
+      owner: user?.username,
+      responsavel_nome: user?.owner || user?.username
+    };
     if (editId) {
-      await supabase.from('cameras').update(form).eq('id', editId);
+      await supabase.from('cameras').update(cameraPayload).eq('id', editId);
     } else {
-      await supabase.from('cameras').insert([{ ...form }]);
+      await supabase.from('cameras').insert([cameraPayload]);
     }
-    setForm({ tipo_conexao: 'cloud', status: 'offline' });
+    setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username });
     setEditId(null);
     setShowModal(false);
     fetchCameras();
@@ -87,15 +126,127 @@ export default function CameraList() {
 
   return (
   <div style={{ minHeight: '100vh', background: '#f3f4f6', padding: 0, margin: 0 }}>
+    {/* Botão para TI acessar gerenciamento de usuários */}
+  {/* Botão de Gerenciar Usuários removido, agora está no menu suspenso do header */}
+    {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
       {/* Header */}
   <header style={{ width: '100%', background: 'linear-gradient(90deg, #04506B 60%, #2563eb 100%)', color: '#fff', padding: 0, boxShadow: '0 2px 8px #0002', position: 'sticky', top: 0, zIndex: 2000 }}>
-    <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '18px 32px 0 32px', gap: 10 }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px 0 32px', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 8 }}>
         <div style={{ width: 54, height: 54, background: '#fff', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0 2px 8px #0002' }}>
           <img src="/images.png" alt="Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} />
         </div>
         <span style={{ fontWeight: 800, fontSize: 28, letterSpacing: 1, textShadow: '0 2px 8px #0002' }}>Câmeras Grupo Ginseng</span>
       </div>
+      {user && (
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <button
+            onClick={() => setShowMenu(v => !v)}
+            style={{
+              background: '#fff',
+              color: '#04506B',
+              border: showMenu ? '2px solid #2563eb' : '1.5px solid #cbd5e1',
+              borderRadius: 14,
+              padding: '10px 22px',
+              fontWeight: 700,
+              fontSize: 17,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              boxShadow: showMenu ? '0 4px 16px #2563eb33' : '0 2px 8px #0001',
+              letterSpacing: 0.5,
+              minWidth: 170,
+              position: 'relative',
+              outline: 'none',
+              transition: 'all 0.18s',
+            }}
+            aria-haspopup="true"
+            aria-expanded={showMenu}
+            onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px #2563eb33')}
+            onMouseLeave={e => (e.currentTarget.style.boxShadow = showMenu ? '0 4px 16px #2563eb33' : '0 2px 8px #0001')}
+          >
+            <FaUser style={{ marginRight: 8, fontSize: 22, color: '#2563eb' }} />
+            <span style={{ fontWeight: 700 }}>{user.owner ? user.owner : user.username}</span>
+            <svg style={{ marginLeft: 10, transition: 'transform 0.2s', transform: showMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          {showMenu && (
+            <div id="user-menu-dropdown" style={{ position: 'absolute', top: 48, right: 0, background: '#fff', color: '#222', borderRadius: 14, boxShadow: '0 4px 24px #2563eb22', minWidth: 240, zIndex: 9999, padding: 0, animation: 'fadeInMenu 0.18s', border: '1.5px solid #cbd5e1' }}>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                <li style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  <button onClick={() => { setShowMenu(false); if (user.role === 'ti') setShowUserManager(true); }} disabled={user.role !== 'ti'} style={{ width: '100%', background: 'none', border: 0, textAlign: 'left', padding: '14px 18px', fontWeight: 600, fontSize: 15, color: user.role === 'ti' ? '#04506B' : '#aaa', cursor: user.role === 'ti' ? 'pointer' : 'not-allowed' }}>
+                    Gerenciar Usuários
+                  </button>
+                </li>
+                <li style={{ borderBottom: '1px solid #e5e7eb', position: 'relative' }}>
+                  <button
+                    onClick={() => (['ti', 'adm'].includes(String(user.role))) && setShowUserPages(v => !v)}
+                    disabled={!['ti', 'adm'].includes(String(user.role))}
+                    style={{ width: '100%', background: 'none', border: 0, textAlign: 'left', padding: '14px 18px', fontWeight: 600, fontSize: 15, color: (['ti', 'adm'].includes(String(user.role))) ? '#04506B' : '#aaa', cursor: (['ti', 'adm'].includes(String(user.role))) ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                  >
+                    Páginas dos Usuários
+                    <svg style={{ marginLeft: 8, transition: 'transform 0.2s', transform: showUserPages ? 'rotate(180deg)' : 'rotate(0deg)' }} width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M6 8L10 12L14 8" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </button>
+                  {(showUserPages && (['ti', 'adm'].includes(String(user.role)))) && (
+                    <ul style={{
+                      position: 'static',
+                      background: '#fff',
+                      color: '#222',
+                      borderRadius: 12,
+                      boxShadow: '0 4px 24px #2563eb22',
+                      minWidth: 200,
+                      zIndex: 9999,
+                      padding: 0,
+                      margin: 0,
+                      listStyle: 'none',
+                      maxHeight: 260,
+                      overflowY: 'auto',
+                      border: '1.5px solid #cbd5e1',
+                      marginTop: 2,
+                    }}>
+                      {users.map(u => (
+                        <li key={u.username}>
+                          <button
+                            onClick={() => { setSelectedUser(u.username); setShowMenu(false); setShowUserPages(false); }}
+                            style={{
+                              width: '100%',
+                              background: selectedUser === u.username ? '#2563eb11' : 'none',
+                              border: 0,
+                              textAlign: 'left',
+                              padding: '12px 18px',
+                              fontWeight: 600,
+                              fontSize: 15,
+                              color: '#04506B',
+                              cursor: 'pointer',
+                              borderLeft: selectedUser === u.username ? '4px solid #2563eb' : '4px solid transparent',
+                              transition: 'background 0.15s, border 0.15s',
+                            }}
+                          >
+                            {u.owner ? `${u.owner} (${u.username})` : u.username}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+  {/* Exemplo de filtro por usuário selecionado (opcional):
+  {selectedUser && (
+    <div style={{ background: '#fffbe6', color: '#111', padding: 10, borderRadius: 8, margin: '12px auto', maxWidth: 400, textAlign: 'center', fontWeight: 600, fontSize: 16, border: '1.5px solid #fbbf24' }}>
+      Visualizando câmeras do usuário: {selectedUser}
+      <button onClick={() => setSelectedUser(null)} style={{ marginLeft: 16, background: '#e0e7ef', color: '#334155', border: 0, borderRadius: 6, padding: '4px 14px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}>Limpar</button>
+    </div>
+  )}
+  */}
+                <li>
+                  <button onClick={logout} style={{ width: '100%', background: 'none', border: 0, textAlign: 'left', padding: '14px 18px', fontWeight: 600, fontSize: 15, color: '#ef4444', cursor: 'pointer' }}>
+                    Sair
+                  </button>
+                </li>
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   </header>
       {/* Bloco de filtros fora do header */}
@@ -136,7 +287,7 @@ export default function CameraList() {
 
         {/* Botão fixo de adicionar câmera */}
         <button
-          onClick={() => { setShowModal(true); setForm({ tipo_conexao: 'cloud', status: 'offline' }); setEditId(null); }}
+          onClick={() => { setShowModal(true); setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username }); setEditId(null); }}
           style={{
             position: 'fixed',
             bottom: 32,
@@ -289,6 +440,8 @@ export default function CameraList() {
             <h3 style={{ color: '#04506B', fontWeight: 700, fontSize: 20, marginBottom: 18 }}>{editId ? 'Editar Câmera' : 'Cadastrar Câmera'}</h3>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <input name="loja_nome" placeholder="Nome da Loja" value={form.loja_nome || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              {/* Campo oculto de owner */}
+              <input name="owner" value={form.owner || ''} type="hidden" readOnly />
               <input name="loja_numero" placeholder="Número da Loja" value={form.loja_numero || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
               <input name="logradouro" placeholder="Logradouro" value={form.logradouro || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
               <input name="cidade" placeholder="Cidade" value={form.cidade || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />

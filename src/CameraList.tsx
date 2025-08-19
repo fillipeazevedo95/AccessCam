@@ -16,6 +16,9 @@ export type Camera = {
   senha: string;
   tipo_conexao: 'cloud' | 'id' | 'ddns';
   status: 'online' | 'offline' | 'sem sinal';
+  logradouro?: string;
+  cidade?: string;
+  estado?: string;
 };
 
 const statusColors = {
@@ -104,6 +107,18 @@ export default function CameraList() {
           </div>
         </div>
 
+        {/* Filtros no header */}
+        <div style={{ position: 'absolute', top: 18, right: 32, display: 'flex', gap: 12, alignItems: 'center', zIndex: 2100 }}>
+          <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as any)} style={{ padding: 7, borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: 15 }}>
+            <option value="all">Todos status</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline</option>
+            <option value="sem sinal">Sem sinal</option>
+          </select>
+          <input type="text" placeholder="Filtrar por Estado" value={form.estado || ''} onChange={e => setForm({ ...form, estado: e.target.value })} style={{ padding: 7, borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: 15, width: 90 }} />
+          <input type="text" placeholder="Filtrar por Cidade" value={form.cidade || ''} onChange={e => setForm({ ...form, cidade: e.target.value })} style={{ padding: 7, borderRadius: 6, border: '1.5px solid #cbd5e1', fontSize: 15, width: 110 }} />
+        </div>
+
         {/* Botão fixo de adicionar câmera */}
         <button
           onClick={() => { setShowModal(true); setForm({ tipo_conexao: 'cloud', status: 'offline' }); setEditId(null); }}
@@ -138,9 +153,13 @@ export default function CameraList() {
             {cameras
               .filter(cam => {
                 const termo = search.toLowerCase();
+                const statusOk = statusFiltro === 'all' || cam.status === statusFiltro;
+                const estadoOk = !form.estado || (cam.estado && cam.estado.toLowerCase().includes(form.estado.toLowerCase()));
+                const cidadeOk = !form.cidade || (cam.cidade && cam.cidade.toLowerCase().includes(form.cidade.toLowerCase()));
                 return (
-                  cam.loja_nome.toLowerCase().includes(termo) ||
-                  (cam.loja_numero && cam.loja_numero.toLowerCase().includes(termo))
+                  statusOk && estadoOk && cidadeOk &&
+                  (cam.loja_nome.toLowerCase().includes(termo) ||
+                  (cam.loja_numero && cam.loja_numero.toLowerCase().includes(termo)))
                 );
               })
               .sort((a, b) => {
@@ -221,6 +240,67 @@ export default function CameraList() {
           </div>
         )}
       </div>
+
+      {/* Modal de cadastro/edição de câmera */}
+      {showModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.25)',
+          zIndex: 4000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ background: '#fff', borderRadius: 14, boxShadow: '0 2px 16px #0003', padding: 32, minWidth: 320, maxWidth: 400, width: '90%', position: 'relative' }}>
+            <button
+              onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline' }); }}
+              style={{ position: 'absolute', top: 12, right: 12, background: '#e0e7ef', color: '#334155', border: 0, borderRadius: '50%', width: 32, height: 32, fontWeight: 700, fontSize: 18, cursor: 'pointer' }}
+              title="Fechar"
+            >
+              ×
+            </button>
+            <h3 style={{ color: '#04506B', fontWeight: 700, fontSize: 20, marginBottom: 18 }}>{editId ? 'Editar Câmera' : 'Cadastrar Câmera'}</h3>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input name="loja_nome" placeholder="Nome da Loja" value={form.loja_nome || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <input name="loja_numero" placeholder="Número da Loja" value={form.loja_numero || ''} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <input name="logradouro" placeholder="Logradouro" value={form.logradouro || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <input name="cidade" placeholder="Cidade" value={form.cidade || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <input name="estado" placeholder="Estado" value={form.estado || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <select name="tipo_conexao" value={form.tipo_conexao || 'cloud'} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                <option value="cloud">Cloud</option>
+                <option value="id">ID</option>
+                <option value="ddns">DDNS</option>
+              </select>
+              {form.tipo_conexao === 'cloud' && (
+                <input name="cloud" placeholder="Cloud" value={form.cloud || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              )}
+              {form.tipo_conexao === 'id' && (
+                <input name="camera_id" placeholder="ID" value={form.camera_id || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              )}
+              {form.tipo_conexao === 'ddns' && (
+                <input name="ddns" placeholder="DDNS" value={form.ddns || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              )}
+              <input name="porta_servico" placeholder="Porta de Serviço" value={form.porta_servico || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <input name="porta_web" placeholder="Porta Web" value={form.porta_web || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <input name="usuario" placeholder="Usuário" value={form.usuario || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <input name="senha" placeholder="Senha" value={form.senha || ''} onChange={handleChange} style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }} />
+              <select name="status" value={form.status || 'offline'} onChange={handleChange} required style={{ padding: 8, borderRadius: 6, border: '1px solid #cbd5e1' }}>
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+                <option value="sem sinal">Sem sinal</option>
+              </select>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 6, padding: '8px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}>{editId ? 'Salvar' : 'Cadastrar'}</button>
+                <button type="button" onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline' }); }} style={{ background: '#e0e7ef', color: '#334155', border: 0, borderRadius: 6, padding: '8px 24px', fontWeight: 600, cursor: 'pointer', fontSize: 16 }}>Cancelar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

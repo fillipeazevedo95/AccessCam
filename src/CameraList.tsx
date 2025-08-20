@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import UserManager from './UserManager.tsx';
 import { useAuth } from './auth.tsx';
 import { useAllUsers } from './useAllUsers.ts';
-import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaExclamationCircle, FaEye, FaEyeSlash, FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaBars, FaTimes } from 'react-icons/fa';
+import { FaStore, FaCloud, FaIdBadge, FaGlobe, FaUser, FaKey, FaWifi, FaExclamationCircle, FaEye, FaEyeSlash, FaEdit, FaTrash, FaChevronLeft, FaChevronRight, FaBars, FaTimes, FaCopy } from 'react-icons/fa';
 import { MdWifiOff } from 'react-icons/md';
 
 type Camera = {
@@ -85,6 +85,11 @@ export default function CameraList() {
   const [statusFiltro, setStatusFiltro] = useState<'all' | 'online' | 'offline' | 'sem sinal'>('all');
   const [estadoFiltro, setEstadoFiltro] = useState<string>('all');
   const [cidadeFiltro, setCidadeFiltro] = useState<string>('all');
+  
+  // Estados para clonagem de câmeras (apenas admin)
+  const [showCloneModal, setShowCloneModal] = useState(false);
+  const [cameraToClone, setCameraToClone] = useState<Camera | null>(null);
+  const [targetUser, setTargetUser] = useState<string>('');
   
   // Estados para paginação
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -264,6 +269,78 @@ export default function CameraList() {
     setLoading(false);
   }
 
+  // Função para iniciar a clonagem (apenas admin) - agora usa câmera do form
+  function handleClone() {
+    if (!isAdmin) {
+      alert('Apenas administradores podem clonar câmeras.');
+      return;
+    }
+    
+    if (!editId) {
+      alert('Selecione uma câmera para editar antes de clonar.');
+      return;
+    }
+    
+    // Encontra a câmera sendo editada
+    const camera = cameras.find(c => c.id === editId);
+    if (!camera) {
+      alert('Câmera não encontrada.');
+      return;
+    }
+    
+    setCameraToClone(camera);
+    setTargetUser('');
+    setShowCloneModal(true);
+  }
+
+  // Função para executar a clonagem
+  async function executeClone() {
+    if (!cameraToClone || !targetUser || !isAdmin) {
+      alert('Selecione um usuário de destino para clonar a câmera.');
+      return;
+    }
+
+    setLoading(true);
+    
+    // Criar cópia da câmera sem o ID
+    const { id, owner, ...cameraData } = cameraToClone;
+    const clonedCamera = {
+      ...cameraData,
+      owner: targetUser,
+      loja_nome: `${cameraData.loja_nome} (Cópia)` // Indica que é uma cópia
+    };
+
+    try {
+      const { error } = await supabase.from('cameras').insert([clonedCamera]);
+      
+      if (error) {
+        alert('Erro ao clonar câmera: ' + error.message);
+      } else {
+        alert(`Câmera "${cameraToClone.loja_nome}" clonada com sucesso para o usuário "${targetUser}"!`);
+        
+        // Atualizar lista de câmeras
+        let query = supabase.from('cameras').select('*');
+        if (!isAdmin) {
+          query = query.eq('owner', user?.username);
+        } else {
+          query = query.eq('owner', usuarioSelecionado);
+        }
+        const { data } = await query;
+        setCameras(data || []);
+        
+        // Fechar modal
+        setShowCloneModal(false);
+        setCameraToClone(null);
+        setTargetUser('');
+      }
+    } catch (error) {
+      alert('Erro inesperado ao clonar câmera.');
+      console.error('Erro:', error);
+    }
+    
+    setLoading(false);
+  }
+
    const camerasFiltradas = cameras
      .filter(cam => {
        if (!isAdmin) {
@@ -305,26 +382,46 @@ export default function CameraList() {
   const camerasPaginadas = camerasFiltradas.slice(indiceInicio, indiceFim);
 
    const cameraCards = camerasPaginadas.map(cam => (
-  <div key={cam.id} className="camera-card" style={{ 
-    background: '#fff', 
-    borderRadius: isMobile ? 4 : 5, 
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.08)', 
-    padding: isMobile ? 4 : 5, 
-    display: 'flex', 
-    flexDirection: 'column', 
-    gap: isMobile ? 1 : 2, 
-    border: '1px solid #f1f5f9', 
-    marginBottom: 0,
-    marginLeft: 0,
-    marginRight: 0,
-    width: '100%',
-    boxSizing: 'border-box',
-    minHeight: 'auto',
-    flex: 'none'
-  }}>
+  <div 
+    key={cam.id} 
+    className="camera-card" 
+    onClick={() => setShowCameraDetails(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+    style={{ 
+      background: '#fff', 
+      borderRadius: isMobile ? 4 : 5, 
+      boxShadow: '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.08)', 
+      padding: isMobile ? 4 : 5, 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: isMobile ? 1 : 2, 
+      border: '1px solid #f1f5f9', 
+      marginBottom: 0,
+      marginLeft: 0,
+      marginRight: 0,
+      width: '100%',
+      boxSizing: 'border-box',
+      minHeight: 'auto',
+      flex: 'none',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      transform: showCameraDetails[cam.id] ? 'scale(1.01)' : 'scale(1)',
+      borderColor: showCameraDetails[cam.id] ? '#0369a1' : '#f1f5f9'
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = showCameraDetails[cam.id] ? 'scale(1.015)' : 'scale(1.005)';
+      e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18), 0 3px 8px rgba(0,0,0,0.1)';
+      e.currentTarget.style.borderColor = '#0369a1';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = showCameraDetails[cam.id] ? 'scale(1.01)' : 'scale(1)';
+      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.08)';
+      e.currentTarget.style.borderColor = showCameraDetails[cam.id] ? '#0369a1' : '#f1f5f9';
+    }}
+  >
   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1, flexWrap: isMobile ? 'wrap' : undefined }}>
           <FaStore color="#2563eb" size={isMobile ? 18 : 20} />
           <span style={{ fontWeight: 700, fontSize: isMobile ? 13 : 15 }}>{cam.loja_nome} {cam.loja_numero && <span style={{ fontWeight: 400, fontSize: isMobile ? 11 : 12, color: '#2563eb' }}>#{cam.loja_numero}</span>}</span>
+          
           <span style={{ 
             marginLeft: 'auto', 
             fontWeight: 600, 
@@ -346,7 +443,10 @@ export default function CameraList() {
           </span>
           <div style={{ display: 'flex', gap: isMobile ? 4 : 6, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row', marginLeft: 6 }}>
             <button
-              onClick={() => handleEdit(cam)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(cam);
+              }}
               style={{
                 background: 'linear-gradient(135deg, #04506B, #0369a1)',
                 color: '#fff',
@@ -367,7 +467,10 @@ export default function CameraList() {
               }}
             ><FaEdit size={12} /> Editar</button>
             <button
-              onClick={() => handleDelete(cam.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(cam.id);
+              }}
               style={{
                 background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
                 color: '#fff',
@@ -388,7 +491,10 @@ export default function CameraList() {
               }}
             ><FaTrash size={12} /> Excluir</button>
             <button 
-              onClick={() => setShowCameraDetails(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowCameraDetails(prev => ({ ...prev, [cam.id]: !prev[cam.id] }));
+              }}
               style={{
                 background: showCameraDetails[cam.id] 
                   ? 'linear-gradient(135deg, #0ea5e9, #0284c7)' 
@@ -396,24 +502,23 @@ export default function CameraList() {
                 color: '#fff',
                 border: 0,
                 borderRadius: 4,
-                padding: isMobile ? '5px 0' : '3px 8px',
+                padding: isMobile ? '5px 0' : '6px 6px',
                 fontWeight: 600,
                 cursor: 'pointer',
                 fontSize: isMobile ? 11 : 10,
-                width: isMobile ? '100%' : 80,
-                minWidth: 60,
+                width: isMobile ? '100%' : 32,
+                minWidth: isMobile ? '100%' : 32,
                 margin: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 4,
+                gap: 0,
                 boxShadow: showCameraDetails[cam.id] 
                   ? '0 1px 4px rgba(14, 165, 233, 0.2)'
                   : '0 1px 4px rgba(4, 80, 107, 0.2)'
               }}
             >
-              {showCameraDetails[cam.id] ? <FaEyeSlash size={12} /> : <FaEye size={12} />} 
-              {showCameraDetails[cam.id] ? 'Esconder' : 'Mostrar'}
+              {showCameraDetails[cam.id] ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
             </button>
           </div>
         </div>
@@ -427,7 +532,10 @@ export default function CameraList() {
                 <FaUser color="#f59e42" size={14} /> 
                 Usuário: {showUsuario[cam.id] ? cam.usuario : '••••••••'}
                 <button 
-                  onClick={() => setShowUsuario(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUsuario(prev => ({ ...prev, [cam.id]: !prev[cam.id] }));
+                  }}
                   style={{
                     background: 'linear-gradient(135deg, #04506B, #0369a1)',
                     color: '#fff',
@@ -448,7 +556,10 @@ export default function CameraList() {
                 <FaKey color="#eab308" size={14} /> 
                 Senha: {showSenha[cam.id] ? cam.senha : '••••••••'}
                 <button 
-                  onClick={() => setShowSenha(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSenha(prev => ({ ...prev, [cam.id]: !prev[cam.id] }));
+                  }}
                   style={{
                     background: 'linear-gradient(135deg, #04506B, #0369a1)',
                     color: '#fff',
@@ -550,9 +661,37 @@ export default function CameraList() {
             <input name="porta_web" value={form.porta_web || ''} onChange={handleChange} placeholder="Porta Web" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
             <input name="usuario" value={form.usuario || ''} onChange={handleChange} placeholder="Usuário" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
             <input name="senha" value={form.senha || ''} onChange={handleChange} placeholder="Senha" type="password" style={{ padding: 8, borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 15 }} />
-            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-              <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 8, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 16 }}>Salvar</button>
-              <button type="button" onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username }); }} style={{ background: '#e11d48', color: '#fff', border: 0, borderRadius: 8, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 16 }}>Cancelar</button>
+            <div style={{ display: 'flex', gap: 12, marginTop: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* Botão de Clonagem - Lado esquerdo (apenas admin e modo edição) */}
+              {isAdmin && editId && (
+                <button 
+                  type="button"
+                  onClick={handleClone}
+                  style={{ 
+                    background: 'linear-gradient(135deg, #10b981, #059669)', 
+                    color: '#fff', 
+                    border: 0, 
+                    borderRadius: 8, 
+                    padding: '8px 18px', 
+                    fontWeight: 700, 
+                    cursor: 'pointer', 
+                    fontSize: 14,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <FaCopy size={14} /> Clonar para Usuário
+                </button>
+              )}
+              
+              {/* Botões Salvar e Cancelar - Lado direito */}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button type="submit" style={{ background: '#2563eb', color: '#fff', border: 0, borderRadius: 8, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 16 }}>Salvar</button>
+                <button type="button" onClick={() => { setShowModal(false); setEditId(null); setForm({ tipo_conexao: 'cloud', status: 'offline', owner: user?.username }); }} style={{ background: '#e11d48', color: '#fff', border: 0, borderRadius: 8, padding: '8px 22px', fontWeight: 700, cursor: 'pointer', fontSize: 16 }}>Cancelar</button>
+              </div>
             </div>
           </form>
         </div>
@@ -1060,12 +1199,182 @@ export default function CameraList() {
               Mostrando {Math.min((paginaAtual - 1) * itensPorPagina + 1, camerasFiltradas.length)} - {Math.min(paginaAtual * itensPorPagina, camerasFiltradas.length)} de {camerasFiltradas.length} câmeras
               <br />
               <span style={{ fontSize: '11px', opacity: 0.7 }}>
-                � {itensPorPagina} itens por página (configuração fixa)
+                📊 {itensPorPagina} itens por página (otimizado)
               </span>
             </div>
           </>
         )}
       </div>
+
+      {/* Modal de Clonagem - Apenas para Admin */}
+      {showCloneModal && isAdmin && (
+        <div style={{ 
+          position: 'fixed', 
+          top: 0, 
+          left: 0, 
+          width: '100%', 
+          height: '100%', 
+          background: 'rgba(0,0,0,0.6)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          zIndex: 1001,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{ 
+            background: '#fff', 
+            padding: '30px', 
+            borderRadius: '12px', 
+            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+            maxWidth: '450px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <h3 style={{ 
+              margin: '0 0 20px 0', 
+              color: '#04506B',
+              fontSize: '20px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}>
+              <FaCopy size={18} color="#10b981" />
+              Clonar Câmera
+            </h3>
+
+            {cameraToClone && (
+              <div style={{ 
+                background: '#f8fafc', 
+                padding: '15px', 
+                borderRadius: '8px', 
+                marginBottom: '20px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <h4 style={{ 
+                  margin: '0 0 10px 0', 
+                  color: '#374151',
+                  fontSize: '14px',
+                  fontWeight: 600
+                }}>
+                  Câmera a ser clonada:
+                </h4>
+                <p style={{ 
+                  margin: '0', 
+                  color: '#6b7280',
+                  fontSize: '14px'
+                }}>
+                  <strong>{cameraToClone.loja_nome}</strong> #{cameraToClone.loja_numero}
+                  <br />
+                  <span style={{ fontSize: '12px', opacity: 0.8 }}>
+                    Proprietário atual: {cameraToClone.owner}
+                  </span>
+                </p>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '8px', 
+                fontWeight: 600, 
+                color: '#374151',
+                fontSize: '14px'
+              }}>
+                Selecionar usuário de destino:
+              </label>
+              <select
+                value={targetUser}
+                onChange={(e) => setTargetUser(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '2px solid #e5e7eb',
+                  fontSize: '14px',
+                  color: '#374151',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.2s ease'
+                }}
+              >
+                <option value="">Selecione um usuário...</option>
+                {allUsers
+                  .filter(u => u.username !== cameraToClone?.owner) // Não mostra o proprietário atual
+                  .map(u => (
+                    <option key={u.username} value={u.username}>
+                      {u.username} ({u.role})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div style={{ 
+              background: '#fef3c7', 
+              padding: '12px', 
+              borderRadius: '8px', 
+              marginBottom: '20px',
+              border: '1px solid #fbbf24'
+            }}>
+              <p style={{ 
+                margin: '0', 
+                fontSize: '12px', 
+                color: '#92400e',
+                lineHeight: '1.4'
+              }}>
+                <strong>⚠️ Atenção:</strong> A câmera será duplicada para o usuário selecionado com o nome "{cameraToClone?.loja_nome}". O usuário terá sua própria visualização desta câmera.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowCloneModal(false);
+                  setCameraToClone(null);
+                  setTargetUser('');
+                }}
+                style={{
+                  background: '#6b7280',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={executeClone}
+                disabled={!targetUser || loading}
+                style={{
+                  background: !targetUser || loading 
+                    ? '#9ca3af' 
+                    : 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  cursor: !targetUser || loading ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {loading ? '⏳' : <FaCopy size={14} />}
+                {loading ? 'Clonando...' : 'Clonar Câmera'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

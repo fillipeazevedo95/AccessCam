@@ -90,30 +90,54 @@ export default function CameraList() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [alturaJanela, setAlturaJanela] = useState(window.innerHeight);
   
-  // Calcula itens por página baseado na altura da tela
+  // Calcula itens por página baseado na altura da tela de forma ultra-otimizada
   const calcularItensPorPagina = () => {
-    const alturaHeader = 80; // Altura aproximada do header (reduzida)
-    const alturaFiltros = 80; // Altura aproximada da barra de filtros
-    const alturaRodape = 80; // Altura aproximada do rodapé e controles de paginação (reduzida)
-    const alturaCameraCard = isMobile ? 350 : 220; // Altura mais realista de cada card de câmera
-    const espacamentoExtra = 20; // Margem de segurança menor
+    const alturaHeader = 55; // Header ultra-compacto
+    const alturaFiltros = 65; // Barra de filtros compacta
+    const alturaRodape = 50; // Rodapé mínimo
+    const alturaCameraCard = isMobile ? 115 : 55; // Cards ultra-compactos (medida real otimizada)
+    const espacamentoExtra = 5; // Margem ultra-mínima
     
     const alturaDisponivel = alturaJanela - alturaHeader - alturaFiltros - alturaRodape - espacamentoExtra;
-    const itensPorPagina = Math.max(1, Math.floor(alturaDisponivel / alturaCameraCard));
+    let itensPorPagina = Math.max(1, Math.floor(alturaDisponivel / alturaCameraCard));
     
-    console.log('Cálculo de itens por página:', {
+    // Algoritmo agressivo: tenta aproveitar 95% do espaço disponível
+    const espacoSobrando = alturaDisponivel - (itensPorPagina * alturaCameraCard);
+    const percentualSobrando = (espacoSobrando / alturaDisponivel) * 100;
+    
+    // Se sobra mais de 30% do espaço, tenta adicionar mais um card
+    if (percentualSobrando > 30 && espacoSobrando > (alturaCameraCard * 0.7)) {
+      itensPorPagina += 1;
+    }
+    
+    console.log('Cálculo ultra-otimizado de itens por página:', {
       alturaJanela,
+      alturaHeader,
+      alturaFiltros, 
+      alturaRodape,
       alturaDisponivel,
       alturaCameraCard,
-      itensPorPagina,
+      itensPorPaginaCalculado: itensPorPagina,
+      espacoUsado: itensPorPagina * alturaCameraCard,
+      espacoSobrando: alturaDisponivel - (itensPorPagina * alturaCameraCard),
+      percentualUso: ((itensPorPagina * alturaCameraCard) / alturaDisponivel * 100).toFixed(1) + '%',
+      percentualSobrando: percentualSobrando.toFixed(1) + '%',
+      aproveitamento: itensPorPagina > 20 ? 'Excelente' : itensPorPagina > 15 ? 'Muito Bom' : itensPorPagina > 10 ? 'Bom' : 'Regular',
+      algoritmoAgressivo: percentualSobrando > 30 ? 'ATIVADO' : 'Normal',
       isMobile
     });
     
-    // Mínimo de 4, máximo de 20 itens por página
-    return Math.min(20, Math.max(4, itensPorPagina));
+    // Mínimo de 10, máximo de 40 itens por página (ultra-otimizado)
+    return Math.min(40, Math.max(10, itensPorPagina));
   };
   
   const itensPorPagina = calcularItensPorPagina();
+  
+  console.log('Paginação automática configurada:', {
+    itensPorPagina,
+    alturaJanela,
+    isMobile
+  });
   
   // Effect para redimensionamento da janela
   useEffect(() => {
@@ -283,12 +307,12 @@ export default function CameraList() {
    const cameraCards = camerasPaginadas.map(cam => (
   <div key={cam.id} className="camera-card" style={{ 
     background: '#fff', 
-    borderRadius: isMobile ? 8 : 12, 
-    boxShadow: '0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)', 
-    padding: isMobile ? 12 : 14, 
+    borderRadius: isMobile ? 4 : 5, 
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.08)', 
+    padding: isMobile ? 4 : 5, 
     display: 'flex', 
     flexDirection: 'column', 
-    gap: isMobile ? 6 : 8, 
+    gap: isMobile ? 1 : 2, 
     border: '1px solid #f1f5f9', 
     marginBottom: 0,
     marginLeft: 0,
@@ -298,71 +322,71 @@ export default function CameraList() {
     minHeight: 'auto',
     flex: 'none'
   }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8, flexWrap: isMobile ? 'wrap' : undefined }}>
-          <FaStore color="#2563eb" size={28} />
-          <span style={{ fontWeight: 700, fontSize: 20 }}>{cam.loja_nome} {cam.loja_numero && <span style={{ fontWeight: 400, fontSize: 16, color: '#2563eb' }}>#{cam.loja_numero}</span>}</span>
+  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1, flexWrap: isMobile ? 'wrap' : undefined }}>
+          <FaStore color="#2563eb" size={isMobile ? 18 : 20} />
+          <span style={{ fontWeight: 700, fontSize: isMobile ? 13 : 15 }}>{cam.loja_nome} {cam.loja_numero && <span style={{ fontWeight: 400, fontSize: isMobile ? 11 : 12, color: '#2563eb' }}>#{cam.loja_numero}</span>}</span>
           <span style={{ 
             marginLeft: 'auto', 
             fontWeight: 600, 
-            fontSize: 14, 
+            fontSize: isMobile ? 11 : 12, 
             textTransform: 'capitalize', 
             display: 'flex', 
             alignItems: 'center', 
-            gap: 6,
+            gap: 4,
             background: cam.status === 'online' ? '#dcfce7' : cam.status === 'offline' ? '#fee2e2' : '#fef3c7',
             color: cam.status === 'online' ? '#166534' : cam.status === 'offline' ? '#991b1b' : '#92400e',
-            padding: '6px 12px',
-            borderRadius: 20,
+            padding: isMobile ? '3px 8px' : '4px 10px',
+            borderRadius: 14,
             border: `1px solid ${cam.status === 'online' ? '#bbf7d0' : cam.status === 'offline' ? '#fecaca' : '#fed7aa'}`
           }}>
-            {cam.status === 'online' && <FaWifi size={12} />}
-            {cam.status === 'offline' && <MdWifiOff size={12} />}
-            {cam.status === 'sem sinal' && <FaExclamationCircle size={12} />}
+            {cam.status === 'online' && <FaWifi size={9} />}
+            {cam.status === 'offline' && <MdWifiOff size={9} />}
+            {cam.status === 'sem sinal' && <FaExclamationCircle size={9} />}
             {cam.status === 'sem sinal' ? 'No Sinal' : cam.status}
           </span>
-          <div style={{ display: 'flex', gap: isMobile ? 8 : 12, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row', marginLeft: 12 }}>
+          <div style={{ display: 'flex', gap: isMobile ? 4 : 6, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row', marginLeft: 6 }}>
             <button
               onClick={() => handleEdit(cam)}
               style={{
                 background: 'linear-gradient(135deg, #04506B, #0369a1)',
                 color: '#fff',
                 border: 0,
-                borderRadius: 8,
-                padding: isMobile ? '10px 0' : '6px 16px',
+                borderRadius: 4,
+                padding: isMobile ? '5px 0' : '3px 8px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                fontSize: isMobile ? 17 : 15,
-                width: isMobile ? '100%' : 110,
-                minWidth: 90,
+                fontSize: isMobile ? 11 : 10,
+                width: isMobile ? '100%' : 80,
+                minWidth: 60,
                 margin: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
-                boxShadow: '0 2px 8px rgba(4, 80, 107, 0.3)'
+                gap: 4,
+                boxShadow: '0 1px 4px rgba(4, 80, 107, 0.2)'
               }}
-            ><FaEdit size={14} /> Editar</button>
+            ><FaEdit size={12} /> Editar</button>
             <button
               onClick={() => handleDelete(cam.id)}
               style={{
                 background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
                 color: '#fff',
                 border: 0,
-                borderRadius: 8,
-                padding: isMobile ? '10px 0' : '6px 16px',
+                borderRadius: 4,
+                padding: isMobile ? '5px 0' : '3px 8px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                fontSize: isMobile ? 17 : 15,
-                width: isMobile ? '100%' : 110,
-                minWidth: 90,
+                fontSize: isMobile ? 11 : 10,
+                width: isMobile ? '100%' : 80,
+                minWidth: 60,
                 margin: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
-                boxShadow: '0 2px 8px rgba(231, 76, 60, 0.3)'
+                gap: 4,
+                boxShadow: '0 1px 4px rgba(231, 76, 60, 0.2)'
               }}
-            ><FaTrash size={14} /> Excluir</button>
+            ><FaTrash size={12} /> Excluir</button>
             <button 
               onClick={() => setShowCameraDetails(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
               style={{
@@ -371,36 +395,36 @@ export default function CameraList() {
                   : 'linear-gradient(135deg, #04506B, #0369a1)',
                 color: '#fff',
                 border: 0,
-                borderRadius: 8,
-                padding: isMobile ? '10px 0' : '6px 16px',
+                borderRadius: 4,
+                padding: isMobile ? '5px 0' : '3px 8px',
                 fontWeight: 600,
                 cursor: 'pointer',
-                fontSize: isMobile ? 17 : 15,
-                width: isMobile ? '100%' : 110,
-                minWidth: 90,
+                fontSize: isMobile ? 11 : 10,
+                width: isMobile ? '100%' : 80,
+                minWidth: 60,
                 margin: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 6,
+                gap: 4,
                 boxShadow: showCameraDetails[cam.id] 
-                  ? '0 2px 8px rgba(14, 165, 233, 0.3)'
-                  : '0 2px 8px rgba(4, 80, 107, 0.3)'
+                  ? '0 1px 4px rgba(14, 165, 233, 0.2)'
+                  : '0 1px 4px rgba(4, 80, 107, 0.2)'
               }}
             >
-              {showCameraDetails[cam.id] ? <FaEyeSlash size={14} /> : <FaEye size={14} />} 
+              {showCameraDetails[cam.id] ? <FaEyeSlash size={12} /> : <FaEye size={12} />} 
               {showCameraDetails[cam.id] ? 'Esconder' : 'Mostrar'}
             </button>
           </div>
         </div>
         {showCameraDetails[cam.id] && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 15 }}>
-            {cam.cloud && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaCloud color="#0ea5e9" size={18} /> Cloud: {cam.cloud}</span>}
-            {cam.camera_id && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaIdBadge color="#6366f1" size={18} /> ID: {cam.camera_id}</span>}
-            {cam.ddns && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#16a34a" size={18} /> DDNS: {cam.ddns}</span>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 13 }}>
+            {cam.cloud && <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}><FaCloud color="#0ea5e9" size={14} /> Cloud: {cam.cloud}</span>}
+            {cam.camera_id && <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}><FaIdBadge color="#6366f1" size={14} /> ID: {cam.camera_id}</span>}
+            {cam.ddns && <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}><FaGlobe color="#16a34a" size={14} /> DDNS: {cam.ddns}</span>}
             {cam.usuario && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
-                <FaUser color="#f59e42" size={18} /> 
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}>
+                <FaUser color="#f59e42" size={14} /> 
                 Usuário: {showUsuario[cam.id] ? cam.usuario : '••••••••'}
                 <button 
                   onClick={() => setShowUsuario(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
@@ -408,20 +432,20 @@ export default function CameraList() {
                     background: 'linear-gradient(135deg, #04506B, #0369a1)',
                     color: '#fff',
                     border: 0,
-                    borderRadius: 4,
-                    padding: '2px 6px',
+                    borderRadius: 3,
+                    padding: '1px 4px',
                     cursor: 'pointer',
-                    fontSize: 10,
-                    marginLeft: 4
+                    fontSize: 9,
+                    marginLeft: 3
                   }}
                 >
-                  {showUsuario[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
+                  {showUsuario[cam.id] ? <FaEyeSlash size={8} /> : <FaEye size={8} />}
                 </button>
               </span>
             )}
             {cam.senha && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}>
-                <FaKey color="#eab308" size={18} /> 
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}>
+                <FaKey color="#eab308" size={14} /> 
                 Senha: {showSenha[cam.id] ? cam.senha : '••••••••'}
                 <button 
                   onClick={() => setShowSenha(prev => ({ ...prev, [cam.id]: !prev[cam.id] }))}
@@ -429,20 +453,20 @@ export default function CameraList() {
                     background: 'linear-gradient(135deg, #04506B, #0369a1)',
                     color: '#fff',
                     border: 0,
-                    borderRadius: 4,
-                    padding: '2px 6px',
+                    borderRadius: 3,
+                    padding: '1px 4px',
                     cursor: 'pointer',
-                    fontSize: 10,
-                    marginLeft: 4
+                    fontSize: 9,
+                    marginLeft: 3
                   }}
                 >
-                  {showSenha[cam.id] ? <FaEyeSlash size={10} /> : <FaEye size={10} />}
+                  {showSenha[cam.id] ? <FaEyeSlash size={8} /> : <FaEye size={8} />}
                 </button>
               </span>
             )}
-            {cam.porta_servico && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaWifi color="#2563eb" size={18} /> Porta Serviço: {cam.porta_servico}</span>}
-            {cam.porta_web && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><MdWifiOff color="#2563eb" size={18} /> Porta Web: {cam.porta_web}</span>}
-            {(cam.cidade || cam.estado) && <span style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f1f5f9', borderRadius: 8, padding: '4px 10px' }}><FaGlobe color="#2563eb" size={18} /> {cam.cidade} {cam.estado && <span style={{ fontWeight: 400 }}>|</span>} {cam.estado}</span>}
+            {cam.porta_servico && <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}><FaWifi color="#2563eb" size={14} /> Porta Serviço: {cam.porta_servico}</span>}
+            {cam.porta_web && <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}><MdWifiOff color="#2563eb" size={14} /> Porta Web: {cam.porta_web}</span>}
+            {(cam.cidade || cam.estado) && <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#f1f5f9', borderRadius: 6, padding: '2px 6px' }}><FaGlobe color="#2563eb" size={14} /> {cam.cidade} {cam.estado && <span style={{ fontWeight: 400 }}>|</span>} {cam.estado}</span>}
           </div>
         )}
       </div>
@@ -453,13 +477,13 @@ export default function CameraList() {
       className="main-container" 
       style={{ 
         minHeight: '100vh', 
-        height: isMobile ? 'auto' : '100vh',
+        height: '100vh',
         background: '#ffffff', 
         padding: 0, 
         margin: 0,
         display: 'flex',
         flexDirection: 'column',
-        overflow: isMobile ? 'visible' : 'hidden',
+        overflow: 'hidden',
         boxSizing: 'border-box'
       }}
       onClick={() => {
@@ -877,13 +901,13 @@ export default function CameraList() {
       {/* Botão para TI acessar gerenciamento de usuários */}
       {showUserManager && <UserManager onClose={() => setShowUserManager(false)} />}
       
-      {/* Área de conteúdo com scroll no mobile */}
+      {/* Área de conteúdo com scroll inteligente */}
       <div style={{
         flex: 1,
-        overflow: isMobile ? 'visible' : 'hidden',
+        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        minHeight: isMobile ? 'auto' : 0 // Permite que o flex funcione corretamente
+        minHeight: 0 // Permite que o flex funcione corretamente
       }}>
         {loading ? (
           <div style={{ 
@@ -905,14 +929,15 @@ export default function CameraList() {
               width: '100%', 
               maxWidth: '100%',
               margin: '0',
-              padding: isMobile ? '10px 20px' : '15px 20px',
+              padding: isMobile ? '3px 12px' : '5px 15px',
               boxSizing: 'border-box',
-              flex: isMobile ? 'none' : 1,
-              overflow: isMobile ? 'visible' : 'hidden',
+              flex: 1,
+              overflow: 'auto', // Permite scroll quando necessário
               display: 'flex',
               flexDirection: 'column',
-              gap: isMobile ? '8px' : '8px',
-              paddingBottom: isMobile ? '80px' : '0' // Espaço extra no mobile para não sobrepor elementos
+              gap: isMobile ? '2px' : '2px',
+              paddingBottom: isMobile ? '10px' : '5px',
+              maxHeight: `calc(100vh - ${isMobile ? '240px' : '160px'})` // Máximo espaço disponível
             }}>{cameraCards}</div>
 
             {/* Componente de Paginação - Fixo na parte inferior */}
@@ -1035,7 +1060,7 @@ export default function CameraList() {
               Mostrando {Math.min((paginaAtual - 1) * itensPorPagina + 1, camerasFiltradas.length)} - {Math.min(paginaAtual * itensPorPagina, camerasFiltradas.length)} de {camerasFiltradas.length} câmeras
               <br />
               <span style={{ fontSize: '11px', opacity: 0.7 }}>
-                📱 {itensPorPagina} itens por página (auto-ajustado para sua tela)
+                � {itensPorPagina} itens por página (configuração fixa)
               </span>
             </div>
           </>

@@ -45,7 +45,7 @@ export default function CameraList() {
     if (isMobile) setHeaderMin(true);
     else setHeaderMin(false);
   }, [isMobile]);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   // Mock de usuários para o menu suspenso
   // Garante que não haja chaves duplicadas no dropdown
   const allUsers = useAllUsers();
@@ -307,7 +307,7 @@ export default function CameraList() {
     const clonedCamera = {
       ...cameraData,
       owner: targetUser,
-      loja_nome: `${cameraData.loja_nome} (Cópia)` // Indica que é uma cópia
+      loja_nome: `${cameraData.loja_nome}` // Indica que é uma cópia
     };
 
     try {
@@ -814,12 +814,7 @@ export default function CameraList() {
                     )}
                     
                     <button 
-                      onClick={() => {
-                        Object.keys(localStorage).forEach(key => {
-                          if (key !== 'lastUser') localStorage.removeItem(key);
-                        });
-                        window.location.reload();
-                      }}
+                      onClick={() => logout()}
                       style={{ 
                         background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
                         color: '#fff', 
@@ -892,12 +887,7 @@ export default function CameraList() {
                   }}>🔧 Gerenciar Usuários</button>
                 </>
               )}
-              <button onClick={() => {
-                Object.keys(localStorage).forEach(key => {
-                  if (key !== 'lastUser') localStorage.removeItem(key);
-                });
-                window.location.reload();
-              }} style={{ 
+              <button onClick={() => logout()} style={{ 
                 background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
                 color: '#fff', 
                 border: 0, 
@@ -1068,7 +1058,9 @@ export default function CameraList() {
               width: '100%', 
               maxWidth: '100%',
               margin: '0',
-              padding: isMobile ? '3px 12px' : '5px 15px',
+              padding: isMobile 
+                ? '15px 20px 20px 20px' 
+                : `20px ${Math.min(40, Math.max(20, (window.innerWidth - 800) * 0.025 + 20))}px 25px ${Math.min(40, Math.max(20, (window.innerWidth - 800) * 0.025 + 20))}px`,
               boxSizing: 'border-box',
               flex: 1,
               overflow: 'auto', // Permite scroll quando necessário

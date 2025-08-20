@@ -7,6 +7,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [remember, setRemember] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Carregar último usuário salvo
   useEffect(() => {
@@ -14,12 +15,37 @@ export default function Login() {
     if (lastUser) setUsername(lastUser);
   }, []);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (remember) localStorage.setItem('lastUser', username);
-    else localStorage.removeItem('lastUser');
-    if (!login(username, password)) {
-      setError('Usuário ou senha inválidos');
+    setLoading(true);
+    setError('');
+
+    try {
+      // Validações básicas
+      if (!username.trim()) {
+        setError('Por favor, digite seu usuário');
+        setLoading(false);
+        return;
+      }
+
+      if (!password.trim()) {
+        setError('Por favor, digite sua senha');
+        setLoading(false);
+        return;
+      }
+
+      if (remember) localStorage.setItem('lastUser', username);
+      else localStorage.removeItem('lastUser');
+      
+      const success = await login(username.trim(), password);
+      if (!success) {
+        setError('Usuário ou senha inválidos');
+      }
+    } catch (err) {
+      console.error('Erro no login:', err);
+      setError('Erro ao conectar com o servidor. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -55,8 +81,24 @@ export default function Login() {
           <input id="remember" type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} style={{ marginRight: 8, accentColor: '#2563eb' }} />
           <label htmlFor="remember" style={{ fontSize: 15, color: '#04506B', userSelect: 'none', cursor: 'pointer' }}>Lembrar usuário</label>
         </div>
-        {error && <span style={{ color: 'red', fontSize: 14, alignSelf: 'flex-start' }}>{error}</span>}
-        <button type="submit" style={{ background: 'linear-gradient(90deg, #2563eb 60%, #04506B 100%)', color: '#fff', border: 0, borderRadius: 7, padding: '12px 0', fontWeight: 700, fontSize: 17, cursor: 'pointer', width: '100%', marginTop: 8, boxShadow: '0 2px 8px #2563eb22', letterSpacing: 0.5 }}>Entrar</button>
+        {error && <span style={{ color: '#e74c3c', fontSize: 14, alignSelf: 'flex-start', background: 'rgba(231, 76, 60, 0.1)', padding: '8px 12px', borderRadius: 6, fontWeight: 600 }}>{error}</span>}
+        <button type="submit" disabled={loading} style={{ 
+          background: loading ? '#94a3b8' : 'linear-gradient(90deg, #2563eb 60%, #04506B 100%)', 
+          color: '#fff', 
+          border: 0, 
+          borderRadius: 7, 
+          padding: '12px 0', 
+          fontWeight: 700, 
+          fontSize: 17, 
+          cursor: loading ? 'not-allowed' : 'pointer', 
+          width: '100%', 
+          marginTop: 8, 
+          boxShadow: loading ? 'none' : '0 2px 8px #2563eb22', 
+          letterSpacing: 0.5,
+          transition: 'all 0.3s ease'
+        }}>
+          {loading ? 'Autenticando...' : 'Entrar'}
+        </button>
       </form>
     </div>
   );
